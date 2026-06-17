@@ -99,7 +99,12 @@ wss.on("connection", (ws) => {
 
     if (msg.type === C2S.PICK_STATION) {
       const station = game.claimStation(msg.stationId, { label: msg.label || "Crew" });
-      if (!station) return;
+      if (!station) {
+        // Station unbekannt oder schon belegt: aktuelle Auswahl zuruecksenden,
+        // damit der Controller seine Liste auffrischt statt haengen zu bleiben.
+        send(ws, S2C.JOINED, { role: "controller", stations: game.freeStations() });
+        return;
+      }
       controllers.set(ws, station.id);
       const task = game.assignTask(station);
       send(ws, S2C.TASK_ASSIGNED, task);
