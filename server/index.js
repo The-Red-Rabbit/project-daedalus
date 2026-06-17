@@ -105,6 +105,12 @@ function send(ws, type, payload) {
   if (ws.readyState === ws.OPEN) ws.send(encode(type, payload));
 }
 
+// An alle Verbundenen senden (Host und Controller).
+function broadcast(type, payload) {
+  for (const ws of hosts) send(ws, type, payload);
+  for (const ws of controllers.keys()) send(ws, type, payload);
+}
+
 wss.on("connection", (ws) => {
   ws.on("message", (raw) => {
     const msg = decode(raw.toString());
@@ -151,6 +157,20 @@ wss.on("connection", (ws) => {
       if (!stationId) return;
       const task = game.assignTask(game.station(stationId));
       send(ws, S2C.TASK_ASSIGNED, task);
+      return;
+    }
+
+    // Leitstand: nur vom Host akzeptieren.
+    if (msg.type === C2S.TRIGGER_EVENT) {
+      if (!hosts.has(ws)) return;
+      const event = game.triggerEvent(msg.kind);
+      if (event) broadcast(S2C.EVENT, event);
+      return;
+    }
+
+    if (msg.type === C2S.SET_DIFFICULTY) {
+      if (!hosts.has(ws)) return;
+      game.setBaseLevel(msg.level);
     }
   });
 

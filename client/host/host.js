@@ -34,6 +34,7 @@ const net = connect({
     if (msg.type === S2C.STATE) updateState(msg);
     if (msg.type === S2C.EVENT && msg.kind === "asteroid") {
       audio.play("alarm.asteroid");
+      audio.play("impact.hull");
       renderer.shake();
     }
   },
@@ -63,9 +64,12 @@ function renderStations(stations) {
 }
 
 el("btn-event").addEventListener("click", () => {
-  // TODO: Ereignis an den Server senden, sobald dieser es verarbeitet.
-  audio.play("alarm.asteroid");
-  renderer.shake();
+  // Server loest die Welle aus und meldet sie als EVENT an alle zurueck.
+  net.send(C2S.TRIGGER_EVENT, { kind: "asteroid" });
+});
+
+el("sel-difficulty").addEventListener("change", (e) => {
+  net.send(C2S.SET_DIFFICULTY, { level: Number(e.target.value) });
 });
 
 el("btn-audio").addEventListener("click", async () => {

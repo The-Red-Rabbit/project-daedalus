@@ -9,6 +9,8 @@ export const C2S = {
   PICK_STATION: "pickStation", // { stationId, label }
   SOLVE_ATTEMPT: "solveAttempt", // { input }
   REQUEST_TASK: "requestTask", // {}
+  TRIGGER_EVENT: "triggerEvent", // { kind } z. B. "asteroid" (nur Host/Leitstand)
+  SET_DIFFICULTY: "setDifficulty", // { level: 1 | 2 | 3 } (nur Host/Leitstand)
 };
 
 // Nachrichten Server -> Client

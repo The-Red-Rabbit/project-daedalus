@@ -6,6 +6,15 @@ import { mulberry32, makeSeed } from "../shared/rng.js";
 import { STATUS } from "../shared/protocol.js";
 import { registry } from "../client/minigames/registry.js";
 
+// Abstimmwerte des Spielkerns an einem Ort.
+const ASTEROID_DAMAGE = 22; // Huellenschaden je Asteroidenwelle
+
+function clampLevel(level) {
+  const n = Math.floor(Number(level));
+  if (!Number.isFinite(n)) return 1;
+  return Math.min(3, Math.max(1, n));
+}
+
 export function createGame(config) {
   const stations = config.stations.map((s) => ({
     id: s.id,
@@ -18,6 +27,7 @@ export function createGame(config) {
 
   const shared = { huelle: 100, energie: 100, fortschritt: 0 };
   let sector = 1;
+  let baseLevel = clampLevel(config.baseLevel || 1);
 
   const station = (id) => stations.find((s) => s.id === id) || null;
   const freeStations = () => stations.filter((s) => !s.owner).map((s) => ({ id: s.id, name: s.name }));
@@ -41,10 +51,24 @@ export function createGame(config) {
   // Erzeugt eine neue Zufallsaufgabe fuer die Station und merkt sich den Seed.
   function assignTask(s) {
     if (!s) return null;
-    const level = config.baseLevel || 1;
     const seed = makeSeed();
-    s.task = { minigame: s.minigame, level, seed };
+    s.task = { minigame: s.minigame, level: baseLevel, seed };
     return s.task;
+  }
+
+  // Grundschwierigkeit (Leitstand). Neue Aufgaben entstehen aus dieser Stufe.
+  function setBaseLevel(level) {
+    baseLevel = clampLevel(level);
+    return baseLevel;
+  }
+
+  // Ereignis vom Leitstand. Eine Asteroidenwelle senkt die Huelle.
+  function triggerEvent(kind) {
+    if (kind === "asteroid") {
+      shared.huelle = Math.max(0, shared.huelle - ASTEROID_DAMAGE);
+      return { kind: "asteroid", damage: ASTEROID_DAMAGE };
+    }
+    return null;
   }
 
   // Baut die Aufgabe aus dem Seed nach und prueft die Eingabe.
@@ -100,6 +124,8 @@ export function createGame(config) {
     releaseStation,
     assignTask,
     solve,
+    setBaseLevel,
+    triggerEvent,
     tick,
     hostState,
     controllerState,

@@ -31,6 +31,9 @@
   .leitstand { display: flex; gap: 10px; align-items: center; }
   button { font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 7px 12px; cursor: pointer; }
   button:hover { border-color: var(--accent-orange); }
+  select { font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 6px 8px; cursor: pointer; }
+  select:hover { border-color: var(--accent-orange); }
+  .leitstand label { display: flex; align-items: center; gap: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 </style>
 </head>
 <body>
@@ -55,6 +58,13 @@
           <div class="panel leitstand">
             <span style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Leitstand</span>
             <button id="btn-event">Asteroidenwelle</button>
+            <label>Stufe
+              <select id="sel-difficulty">
+                <option value="1">1 leicht</option>
+                <option value="2">2 mittel</option>
+                <option value="3">3 schwer</option>
+              </select>
+            </label>
             <button id="btn-audio">Ton an</button>
           </div>
           <div class="panel join">
