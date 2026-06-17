@@ -28,6 +28,9 @@ neuen Features. Die offenen Tickets in `TASKS.md` (T1 bis T6) bleiben offen.
 - Deterministischer Zufall: der Server baut aus demselben Seed dieselbe Aufgabe
   nach. Die Bewertung ist dadurch autoritativ und unabhängig von Client-Angaben.
 - Ressourcen, Performance und Konsolen-Rauschen, insbesondere die Audio-Probe.
+- Abgleich mit der verbindlichen `docs/VISUAL_DESIGN.md` (siehe 2.5): die Palette in
+  `tokens.css` deckt sich vollständig mit der Vorgabe (alle Haupt- und Akzentfarben),
+  und der Audio-Cue-Katalog passt zur beschriebenen Klangwelt.
 
 ## 2. Was geändert wurde und warum
 
@@ -68,6 +71,15 @@ Bordcomputer (`generate`-Determinismus, Stufen-Gatter, Wahrheitstabelle,
 `validate`) und die Kopplungs-Mathematik in `server/game.js` (Huellen-Verfall im
 Leerlauf, Fortschritt erst ab genug stabilen Stationen). 19 Tests, alle grün.
 
+### 2.5 Farben durchgängig aus den Tokens (`renderer.js`, `controller.css`)
+
+Nachdem `docs/VISUAL_DESIGN.md` gefüllt und damit verbindlich wurde („alle Farben
+aus tokens.css"): der Canvas-Rückfallwert für `--steel-dark` im Renderer war veraltet
+(`#2b2e31`, das ist der `--edge`-Wert) und entspricht nun dem Token (`#232a30`). Die
+Zeilen-Markierungen der Bordcomputer-Tabelle nutzten handgeschriebene RGBA-Werte und
+leiten sich jetzt über `color-mix` aus `--status-stable` und `--status-critical` ab
+(optisch identisch).
+
 ## 3. Verifiziert
 
 - `npm install`: 0 Schwachstellen.
@@ -80,11 +92,9 @@ Leerlauf, Fortschritt erst ab genug stabilen Stationen). 19 Tests, alle grün.
 
 ## 4. Bewusst zurückgestellt
 
-- **`docs/VISUAL_DESIGN.md` ist leer (0 Byte)**, obwohl in `CLAUDE.md` und in der
-  Aufgabenstellung als verbindlich bezeichnet. Inhalt zu erfinden gehört nicht in
-  einen Prüfdurchgang. Die visuelle Leitlinie steht derzeit nur im Abschnitt
-  „Visuelles Design" der `CLAUDE.md`. Das sollte vor weiterer UI-Arbeit gefüllt
-  werden. Bitte um Klärung, ob ich es aus der `CLAUDE.md` ausformulieren soll.
+- (Erledigt) `docs/VISUAL_DESIGN.md` war zunächst leer, ist aber inzwischen von der
+  Projektleitung mit der verbindlichen Stilvorgabe gefüllt worden. Der Abgleich mit
+  dem Code ist erfolgt (siehe 1. und 2.5).
 - Tickets T1 bis T6 aus `TASKS.md` (sichtbarer QR auf dem Host, Leitstand an den
   Server, Statusverfall, Sektorfluss und Spielende, Rollenrotation, Tiefpassfilter)
   sind Features und damit nicht Teil dieses Durchgangs.
