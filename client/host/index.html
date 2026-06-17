@@ -21,6 +21,8 @@
   .station { min-width: 120px; }
   .station .name { font-weight: 500; }
   .station .status { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .station .stability { height: 4px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
+  .station .stability > div { height: 100%; width: 0; transition: width 0.2s linear; }
   .bottombar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
   .join { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
   .join .join-text { text-align: left; }

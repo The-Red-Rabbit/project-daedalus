@@ -56,9 +56,12 @@ function renderStations(stations) {
     const div = document.createElement("div");
     div.className = "station";
     const owner = s.owner ? ` · ${s.owner}` : "";
+    const color = statusColor[s.status] || "var(--text-muted)";
+    const stability = Math.round((s.stability || 0) * 100);
     div.innerHTML =
       `<div class="name">${s.name}</div>` +
-      `<div class="status" style="color:${statusColor[s.status] || "var(--text-muted)"}">${s.status}${owner}</div>`;
+      `<div class="status" style="color:${color}">${s.status}${owner}</div>` +
+      `<div class="stability"><div style="width:${stability}%; background:${color}"></div></div>`;
     root.appendChild(div);
   }
 }
