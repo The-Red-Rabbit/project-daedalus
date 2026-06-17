@@ -22,8 +22,12 @@
   .station .name { font-weight: 500; }
   .station .status { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
   .bottombar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
-  .join { text-align: right; font-size: 13px; color: var(--text-muted); }
-  .join b { color: var(--accent-cyan); }
+  .join { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
+  .join .join-text { text-align: left; }
+  .join .join-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .join .join-url { color: var(--accent-cyan); font-family: var(--font-mono); margin-top: 2px; }
+  .qr { background: #fff; padding: 6px; border-radius: 3px; line-height: 0; }
+  .qr svg { display: block; width: 120px; height: 120px; }
   .leitstand { display: flex; gap: 10px; align-items: center; }
   button { font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 7px 12px; cursor: pointer; }
   button:hover { border-color: var(--accent-orange); }
@@ -53,7 +57,13 @@
             <button id="btn-event">Asteroidenwelle</button>
             <button id="btn-audio">Ton an</button>
           </div>
-          <div class="panel join">Beitritt im WLAN: <b id="join-url">/controller</b></div>
+          <div class="panel join">
+            <div id="qr" class="qr"></div>
+            <div class="join-text">
+              <div class="join-label">Beitritt im WLAN</div>
+              <div class="join-url" id="join-url">…</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

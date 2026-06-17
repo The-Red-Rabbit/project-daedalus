@@ -70,7 +70,30 @@ function lanAddress() {
   return "localhost";
 }
 
-const server = http.createServer(serveStatic);
+// Beitritts-URL fuer die Controller, gebildet aus der LAN-Adresse.
+function joinUrl() {
+  return `http://${lanAddress()}:${PORT}/controller`;
+}
+
+// Liefert die Beitritts-URL als QR-Code (SVG). Die URL steht zusaetzlich im
+// Header X-Join-URL, damit der Host sie ohne zweite Anfrage anzeigen kann.
+async function serveQr(res) {
+  try {
+    const url = joinUrl();
+    const svg = await QRCode.toString(url, { type: "svg", margin: 1 });
+    res.writeHead(200, { "Content-Type": "image/svg+xml; charset=utf-8", "X-Join-URL": url });
+    res.end(svg);
+  } catch {
+    res.writeHead(500);
+    res.end("QR-Fehler");
+  }
+}
+
+const server = http.createServer((req, res) => {
+  const path = decodeURIComponent((req.url || "/").split("?")[0]);
+  if (path === "/qr") return serveQr(res);
+  return serveStatic(req, res);
+});
 const wss = new WebSocketServer({ server });
 
 // Ein einzelner Raum genuegt fuer das MVP. Spaeter optional mehrere Raeume.
@@ -151,7 +174,7 @@ setInterval(() => {
 }, 1000 / TICK_HZ);
 
 server.listen(PORT, async () => {
-  const url = `http://${lanAddress()}:${PORT}/controller`;
+  const url = joinUrl();
   const qr = await QRCode.toString(url, { type: "terminal", small: true }).catch(() => "");
   console.log(`Daedalus laeuft auf http://localhost:${PORT}`);
   console.log(`Host:       http://localhost:${PORT}/host`);

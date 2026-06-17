@@ -15,7 +15,18 @@ const statusColor = {
   [STATUS.CRITICAL]: "var(--status-critical)",
 };
 
-el("join-url").textContent = `${location.host}/controller`;
+// Beitritts-QR und LAN-URL vom Server holen (siehe /qr).
+async function loadJoin() {
+  try {
+    const res = await fetch("/qr");
+    el("qr").innerHTML = await res.text();
+    const url = res.headers.get("X-Join-URL");
+    if (url) el("join-url").textContent = url;
+  } catch {
+    el("join-url").textContent = `${location.host}/controller`;
+  }
+}
+loadJoin();
 
 const net = connect({
   open: () => net.send(C2S.JOIN, { role: "host" }),
