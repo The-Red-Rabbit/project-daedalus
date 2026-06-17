@@ -4,7 +4,7 @@ Abgegrenzte Aufgaben für Claude Code. Das Grundgerüst steht und läuft (Server
 
 Reihenfolge: T1 bis T4 und T6 bilden das MVP. T5 ist ein späterer Schritt. Jedes Ticket nennt Ziel, betroffene Dateien, Vorgehen und ein Abnahmekriterium. Bezeichner im Code auf Englisch, sichtbare Texte auf Deutsch, generate und validate bleiben ohne DOM.
 
-Stand 17.06.2026: Das MVP ist umgesetzt. T1, T2, T3, T4 und T6 sind erledigt und durch automatische Tests und einen Durchlauf mit zwei Controllern belegt. Offen bleibt nur T5 (Rollenrotation, später).
+Stand 17.06.2026: Alle Tickets sind umgesetzt. T1, T2, T3, T4, T5 und T6 sind erledigt und durch automatische Tests sowie Durchlaeufe mit mehreren Controllern (Sieg- und Niederlage-Pfad) belegt. Zusaetzlich gibt es ein drittes Mini-Spiel (Zahlensysteme, Station Navigation) und einen Qualitaetsschliff bei Bild und Ton.
 
 ## T1: Sichtbarer QR-Code auf der Host-Seite (erledigt)
 
@@ -54,15 +54,17 @@ Fertig, wenn: Ein Durchlauf sichtbar endet, als Sieg oder als Niederlage.
 
 Erledigt: Voller Fortschritt führt in den nächsten Sektor (drei insgesamt), nach dem letzten folgt der Sieg, leere Hülle die Niederlage. Die Phase liegt im Zustand; nach dem Ende ruht die Simulation. Der Host zeigt ein Ergebnisfenster mit dem Knopf „Neuer Anlauf“ (`resetGame`), der Server setzt zurück und vergibt frische Aufgaben.
 
-## T5: Rollenrotation und Unterstützerrolle (später)
+## T5: Rollenrotation und Unterstützerrolle (erledigt)
 
 Ziel: Rollen wechseln zwischen Sektoren. Schnelle Lernende erhalten eine Unterstützerrolle statt Wartezeit.
 
-Dateien: `server/game.js`, `client/controller/controller.js`.
+Dateien: `server/game.js`, `server/index.js`, `client/controller/controller.js`, `shared/protocol.js`.
 
 Vorgehen: Beim Sektorwechsel die Stationen neu zuteilen. Wer schnell löst, bekommt eine Co-Pilot-Aufgabe aus einem Pool, etwa einer ausgelasteten Station zuarbeiten.
 
 Fertig, wenn: Nach einem Sektor sitzt jede Person an einer anderen Station und schnelle Lösungen erzeugen keine Wartezeit.
+
+Erledigt: Der Server verteilt die Rollen selbst. Wer beitritt, wird Operator einer freien Station oder, wenn alle besetzt sind, Co-Pilot der am wenigsten unterstützten Station, also kein Warten. Eine Co-Pilot-Lösung hebt die Stabilität der Station. Beim Sektorwechsel rotiert die Sitzordnung, jede Person wechselt die Station. Fällt ein Operator aus, rückt ein Co-Pilot nach. Die Schwierigkeit justiert pro Person nach dem Tempo.
 
 ## T6: Zweites Mini-Spiel Tiefpassfilter (Station Sensorik) (erledigt)
 

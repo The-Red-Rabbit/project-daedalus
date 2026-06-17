@@ -74,10 +74,10 @@ Der Server tickt mit fester Rate (Vorgabe 10 Hz), aktualisiert die geteilten Wer
 
 Nachrichtentypen liegen in `shared/protocol.js`. Auszug:
 
-- Client an Server: `join`, `pickStation`, `solveAttempt`, `requestTask`, `triggerEvent`, `setDifficulty`, `resetGame`
-- Server an Client: `joined`, `state`, `taskAssigned`, `result`, `event`
+- Client an Server: `join` (Host oder Controller, optional `label`), `solveAttempt`, `requestTask`, `triggerEvent`, `setDifficulty`, `resetGame`
+- Server an Client: `joined`, `assignment`, `state`, `taskAssigned`, `result`, `event`
 
-`triggerEvent` (Asteroidenwelle), `setDifficulty` (Grundstufe) und `resetGame` (neuer Anlauf) nimmt der Server nur vom Host an (Leitstand). Der Host erhält im `state` die Gesamtansicht samt Sektor, Phase und Stationsstabilität, ein Controller nur seine Stationsansicht.
+Der Server verteilt die Stationen selbst: Auf das `join` eines Controllers folgt ein `assignment` (Operator oder Co-Pilot samt Station) und eine erste Aufgabe, niemand wartet. `triggerEvent` (Asteroidenwelle), `setDifficulty` (Grundstufe) und `resetGame` (neuer Anlauf) nimmt der Server nur vom Host an (Leitstand). Beim Sektorwechsel rotiert er die Sitzordnung und schickt allen ein neues `assignment`. Der Host erhält im `state` die Gesamtansicht (Sektor, Phase, Crew, Stationen mit Operator und Co-Piloten), ein Controller seine Stationsansicht.
 
 ## Zufallsgenerierung der Mini-Spiele
 
@@ -128,7 +128,7 @@ Umsetzung im Code:
 
 ## Audio-Design
 
-Der Ton folgt derselben Welt: Metall, Druckluft, schwere Verschlüsse, tieffrequentes Brummen. Die Engine in `client/audio.js` kennt einen Cue-Katalog. Jeder Cue hat eine synthetisierte Variante (Web Audio) und einen optionalen Datei-Slot unter `assets/audio/`. Liegt eine Datei vor, gewinnt sie, sonst spielt die Synthese.
+Der Ton folgt derselben Welt: Metall, Druckluft, schwere Verschlüsse, tieffrequentes Brummen. Die Engine in `client/audio.js` kennt einen Cue-Katalog. Jeder Cue hat eine synthetisierte Variante (Web Audio) und einen optionalen Datei-Slot unter `assets/audio/` (gelistet in `assets/audio/manifest.json`). Liegt eine Datei vor, gewinnt sie, sonst spielt die Synthese. Zusätzlich schichtet `startAmbient` eine Klangkulisse (zwei verstimmte Brummschichten, tiefes Rumpeln, langsam waberndes Neonflackern), und bei kritischer Hülle blendet `setAlarm` ein pulsierendes Alarmbett ein.
 
 Cue-Katalog (Startumfang):
 
@@ -155,11 +155,11 @@ Host öffnen unter `/host`, einen Controller testweise unter `/controller`. Im s
 
 ## Aufgaben für Claude Code
 
-Das MVP ist umgesetzt (Stand 17.06.2026). Lauffähig sind: Server mit autoritativer Logik, Host mit Schiffsszene, HUD, Leitstand und sichtbarem Beitritts-QR, Controller mit Stationswahl, zwei voll spielbare Mini-Spiele (Bordcomputer, Themenfeld 3, und Tiefpassfilter auf der Station Sensorik, Themenfeld 2), die Audio-Engine und die Designtokens.
+Das Spiel ist klassenfertig (Stand 17.06.2026). Lauffähig sind: Server mit autoritativer Logik, Host mit reaktiver Schiffsszene, HUD, Leitstand und sichtbarem Beitritts-QR, Controller mit Lobby und Rollenanzeige, drei voll spielbare Mini-Spiele (Bordcomputer, Themenfeld 3; Tiefpassfilter auf der Station Sensorik, Themenfeld 2; Zahlensysteme auf der Station Navigation, Themenfeld 3), die geschichtete Audio-Engine und die Designtokens.
 
-Der Spielablauf: Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus und setzt die Grundschwierigkeit.
+Der Spielablauf: Der Server setzt jede Person als Operator einer Station oder als Co-Pilot ein. Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor und rotiert die Rollen; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus, setzt die Grundschwierigkeit und startet einen neuen Anlauf.
 
-Erledigt sind die Tickets T1 bis T4 und T6 (siehe `TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und einen Durchlauf mit zwei Controllern. Offen bleibt T5 (Rollenrotation und Unterstützerrolle) und echte Assets in den Slots unter `assets/`.
+Erledigt sind alle Tickets T1 bis T6 (siehe `TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und Durchläufe mit mehreren Controllern für Sieg- und Niederlage-Pfad. Offen bleiben nur echte Assets in den Slots unter `assets/` (das Spiel läuft prozedural ohne sie).
 
 ## Konventionen
 
