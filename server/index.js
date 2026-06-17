@@ -3,7 +3,7 @@
 
 import http from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize, dirname } from "node:path";
+import { extname, join, normalize, dirname, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { networkInterfaces } from "node:os";
 import { WebSocketServer } from "ws";
@@ -13,6 +13,9 @@ import { createGame } from "./game.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
+const CLIENT = join(ROOT, "client");
+const SHARED = join(ROOT, "shared");
+const ASSETS = join(ROOT, "assets");
 const PORT = Number(process.env.PORT) || 3000;
 
 const MIME = {
@@ -33,10 +36,18 @@ async function serveStatic(req, res) {
   if (urlPath === "/" || urlPath === "/host") urlPath = "/host/index.html";
   if (urlPath === "/controller") urlPath = "/controller/index.html";
 
-  const fromRoot = urlPath.startsWith("/shared/") || urlPath.startsWith("/assets/");
-  const base = fromRoot ? ROOT : join(ROOT, "client");
+  // Zielverzeichnis: /shared und /assets liegen im Stamm, alles andere unter client/.
+  let confineDir = CLIENT;
+  if (urlPath.startsWith("/shared/")) confineDir = SHARED;
+  else if (urlPath.startsWith("/assets/")) confineDir = ASSETS;
+  const base = confineDir === CLIENT ? CLIENT : ROOT;
   const filePath = normalize(join(base, urlPath));
-  if (!filePath.startsWith(ROOT)) {
+
+  // Pfadausbruch verhindern: die Datei muss im Zielverzeichnis bleiben.
+  // Ein reiner Praefix-Vergleich genuegt nicht (Nachbarordner mit gleichem
+  // Anfang, Backslashes unter Windows), daher der Vergleich ueber relative().
+  const rel = relative(confineDir, filePath);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
     res.writeHead(403);
     return res.end("verboten");
   }
