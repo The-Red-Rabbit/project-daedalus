@@ -18,11 +18,14 @@
   .bar { height: 8px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 4px; }
   .bar > div { height: 100%; width: 0; }
   .stations { display: flex; gap: 10px; flex-wrap: wrap; max-width: 60%; }
-  .station { min-width: 120px; }
-  .station .name { font-weight: 500; }
-  .station .status { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .station .stability { height: 4px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
+  .station { min-width: 132px; }
+  .station .name { font-weight: 600; font-size: 15px; }
+  .station .status { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .station .who { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .station .stability { height: 5px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
   .station .stability > div { height: 100%; width: 0; transition: width 0.2s linear; }
+  #banner { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-yellow); color: var(--text-primary); font-size: 18px; letter-spacing: 0.04em; padding: 10px 20px; border-radius: 3px; opacity: 0; transition: opacity 0.25s; }
+  #banner.show { opacity: 1; }
   .bottombar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
   .join { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
   .join .join-text { text-align: left; }
@@ -56,11 +59,13 @@
         <button id="btn-restart">Neuer Anlauf</button>
       </div>
     </div>
+    <div id="banner"></div>
     <div id="overlay">
       <div class="topbar">
         <div class="panel">
           <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted);">Daedalus</div>
-          <div id="sector" style="font-size:20px; font-weight:500;">Sektor 1</div>
+          <div id="sector" style="font-size:22px; font-weight:600;">Sektor 1</div>
+          <div id="crew" style="font-size:13px; color:var(--text-muted); margin-top:2px;">Crew 0</div>
         </div>
         <div class="panel values">
           <div class="value"><div class="label">Hülle</div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>

@@ -5,22 +5,22 @@ export const TICK_HZ = 10;
 
 // Nachrichten Client -> Server
 export const C2S = {
-  JOIN: "join",            // { role: "host" | "controller" }
-  PICK_STATION: "pickStation", // { stationId, label }
+  JOIN: "join",            // { role: "host" | "controller", label? }
   SOLVE_ATTEMPT: "solveAttempt", // { input }
   REQUEST_TASK: "requestTask", // {}
   TRIGGER_EVENT: "triggerEvent", // { kind } z. B. "asteroid" (nur Host/Leitstand)
   SET_DIFFICULTY: "setDifficulty", // { level: 1 | 2 | 3 } (nur Host/Leitstand)
-  RESET_GAME: "resetGame", // {} neuer Anlauf nach Sieg oder Niederlage (nur Host)
+  RESET_GAME: "resetGame", // {} neuer Anlauf (nur Host)
 };
 
 // Nachrichten Server -> Client
 export const S2C = {
-  JOINED: "joined",        // { role, stations }
+  JOINED: "joined",        // { role } Bestaetigung des Beitritts
+  ASSIGNMENT: "assignment", // { role: "operator"|"supporter", stationId, stationName, minigame }
   STATE: "state",          // Host: Gesamtansicht, Controller: Stationsansicht
   TASK_ASSIGNED: "taskAssigned", // { minigame, level, seed }
   RESULT: "result",        // { geloest, teiltreffer, hinweis }
-  EVENT: "event",          // { kind, ... } z. B. Asteroidenwelle
+  EVENT: "event",          // { kind, ... } z. B. "asteroid", "rotate"
 };
 
 // Stationsstatus (sichtbarer Text)

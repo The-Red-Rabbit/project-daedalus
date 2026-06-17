@@ -14,6 +14,12 @@ const statusColor = {
   [STATUS.WARN]: "var(--status-warn)",
   [STATUS.CRITICAL]: "var(--status-critical)",
 };
+// Form je Status, damit nicht nur die Farbe informiert (Barrierearmut).
+const statusShape = {
+  [STATUS.STABLE]: "●",
+  [STATUS.WARN]: "▲",
+  [STATUS.CRITICAL]: "✕",
+};
 
 // Beitritts-QR und LAN-URL vom Server holen (siehe /qr).
 async function loadJoin() {
@@ -37,11 +43,25 @@ const net = connect({
       audio.play("impact.hull");
       renderer.shake();
     }
+    if (msg.type === S2C.EVENT && msg.kind === "rotate") {
+      audio.play("progress.tick");
+      banner(`Sektor ${msg.sector} · Rollenwechsel`);
+    }
   },
 });
 
+let bannerTimer = null;
+function banner(text) {
+  const b = el("banner");
+  b.textContent = text;
+  b.classList.add("show");
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => b.classList.remove("show"), 3000);
+}
+
 function updateState(state) {
   el("sector").textContent = `Sektor ${state.sector} / ${state.sectorCount}`;
+  el("crew").textContent = state.crew === 1 ? "1 Crew an Bord" : `${state.crew} Crew an Bord`;
   el("v-huelle").style.width = `${state.shared.huelle}%`;
   el("v-energie").style.width = `${state.shared.energie}%`;
   el("v-fortschritt").style.width = `${state.shared.fortschritt}%`;
@@ -81,12 +101,15 @@ function renderStations(stations) {
   for (const s of stations) {
     const div = document.createElement("div");
     div.className = "station";
-    const owner = s.owner ? ` · ${s.owner}` : "";
     const color = statusColor[s.status] || "var(--text-muted)";
+    const shape = statusShape[s.status] || "";
     const stability = Math.round((s.stability || 0) * 100);
+    const who = s.operator ? s.operator : "frei";
+    const sup = s.supporters > 0 ? ` · +${s.supporters} Co-Pilot${s.supporters > 1 ? "en" : ""}` : "";
     div.innerHTML =
       `<div class="name">${s.name}</div>` +
-      `<div class="status" style="color:${color}">${s.status}${owner}</div>` +
+      `<div class="status" style="color:${color}">${shape} ${s.status}</div>` +
+      `<div class="who">${who}${sup}</div>` +
       `<div class="stability"><div style="width:${stability}%; background:${color}"></div></div>`;
     root.appendChild(div);
   }

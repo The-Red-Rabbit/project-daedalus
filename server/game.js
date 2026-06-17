@@ -1,6 +1,7 @@
-// Autoritativer Spielzustand: Stationen, geteilte Werte, Sektor-Schleife.
-// Bewusst als nachvollziehbares Geruest gehalten. Stellen mit TODO sind
-// fuer Claude Code zum Ausbauen vorgesehen.
+// Autoritativer Spielzustand: Stationen, Teilnehmer, geteilte Werte, Sektor-Schleife.
+// Der Server verteilt Rollen selbst (Operator je Station, Co-Piloten als
+// Unterstuetzung), rotiert die Sitzordnung je Sektor und justiert die
+// Schwierigkeit pro Person nach dem Tempo.
 
 import { mulberry32, makeSeed } from "../shared/rng.js";
 import { STATUS } from "../shared/protocol.js";
@@ -13,6 +14,9 @@ const HULL_DRAIN_CRITICAL = 1.5;   // unbesetzte Station, Huelle pro Sekunde
 const HULL_DRAIN_WARN = 0.6;       // besetzt, aber nicht stabil, Huelle pro Sekunde
 const PROGRESS_PER_SEC = 8;        // Fortschritt pro Sekunde bei genug stabilen Stationen
 const MAX_SECTORS = 3;             // nach dem letzten Sektor folgt der Sieg
+const SUPPORTER_BOOST = 0.34;      // eine Co-Pilot-Loesung hebt die Stabilitaet der Station
+const FAST_SOLVE_SEC = 6;          // schneller geloest -> eine Stufe schwerer
+const SLOW_SOLVE_SEC = 18;         // langsamer geloest -> eine Stufe leichter
 
 function clampLevel(level) {
   const n = Math.floor(Number(level));
@@ -26,56 +30,139 @@ export function createGame(config) {
     name: s.name,
     minigame: s.minigame,
     status: STATUS.CRITICAL, // unbesetzt zaehlt als kritisch
-    owner: null, // { label }
-    task: null, // { minigame, level, seed }
     stability: 0, // 1 direkt nach dem Loesen, faellt im Tick auf 0
+    operatorId: null, // Teilnehmer, der die Station bedient
+    supporters: [], // Teilnehmer-Ids, die zuarbeiten
   }));
 
-  // Der Status ergibt sich aus Besetzung und Stabilitaet.
-  function refreshStatus(s) {
-    if (!s.owner) s.status = STATUS.CRITICAL;
-    else if (s.stability > 0) s.status = STATUS.STABLE;
-    else s.status = STATUS.WARN;
-  }
+  // id -> { id, label, role, stationId, level, task, taskAt }
+  const participants = new Map();
 
   const shared = { huelle: 100, energie: 100, fortschritt: 0 };
   let sector = 1;
   let phase = "running"; // "running" | "won" | "lost"
   let baseLevel = clampLevel(config.baseLevel || 1);
+  let now = 0; // Sekundenuhr aus den Ticks (fuer das Tempo)
 
   const station = (id) => stations.find((s) => s.id === id) || null;
-  const freeStations = () => stations.filter((s) => !s.owner).map((s) => ({ id: s.id, name: s.name }));
+  const stationName = (id) => (station(id) ? station(id).name : "");
+  const minigameOf = (id) => (station(id) ? station(id).minigame : null);
 
-  function claimStation(id, owner) {
-    const s = station(id);
-    if (!s || s.owner) return null;
-    s.owner = owner;
-    s.stability = 0;
-    refreshStatus(s); // besetzt, aber noch nicht stabil -> achtung
-    return s;
+  // Der Status ergibt sich aus Besetzung und Stabilitaet.
+  function refreshStatus(s) {
+    if (!s.operatorId) s.status = STATUS.CRITICAL;
+    else if (s.stability > 0) s.status = STATUS.STABLE;
+    else s.status = STATUS.WARN;
   }
 
-  function releaseStation(id) {
-    const s = station(id);
-    if (!s) return;
-    s.owner = null;
-    s.task = null;
-    s.stability = 0;
-    refreshStatus(s);
+  function assignmentOf(id) {
+    const p = participants.get(id);
+    if (!p) return null;
+    return {
+      id: p.id,
+      label: p.label,
+      role: p.role,
+      stationId: p.stationId,
+      stationName: stationName(p.stationId),
+      minigame: minigameOf(p.stationId),
+    };
   }
 
-  // Erzeugt eine neue Zufallsaufgabe fuer die Station und merkt sich den Seed.
-  function assignTask(s) {
-    if (!s) return null;
-    const seed = makeSeed();
-    s.task = { minigame: s.minigame, level: baseLevel, seed };
-    return s.task;
+  // Freie Operator-Station bevorzugen, sonst Co-Pilot der am wenigsten
+  // unterstuetzten besetzten Station (Gleichstand: niedrigste Stabilitaet).
+  function place(p) {
+    const free = stations.find((s) => !s.operatorId);
+    if (free) {
+      free.operatorId = p.id;
+      p.role = "operator";
+      p.stationId = free.id;
+      refreshStatus(free);
+      return;
+    }
+    const target = stations
+      .slice()
+      .sort((a, b) => a.supporters.length - b.supporters.length || a.stability - b.stability)[0];
+    target.supporters.push(p.id);
+    p.role = "supporter";
+    p.stationId = target.id;
   }
 
-  // Grundschwierigkeit (Leitstand). Neue Aufgaben entstehen aus dieser Stufe.
+  function addParticipant(id, label) {
+    const p = { id, label: label || "Crew", role: "operator", stationId: null, level: baseLevel, task: null, taskAt: now };
+    participants.set(id, p);
+    place(p);
+    return assignmentOf(id);
+  }
+
+  // Entfernt einen Teilnehmer. Faellt ein Operator weg, rueckt ein Co-Pilot nach.
+  function removeParticipant(id) {
+    const p = participants.get(id);
+    if (!p) return {};
+    const s = station(p.stationId);
+    let promoted = null;
+    if (s) {
+      if (s.operatorId === id) {
+        s.operatorId = null;
+        if (s.supporters.length) {
+          const nextId = s.supporters.shift();
+          const np = participants.get(nextId);
+          if (np) {
+            s.operatorId = nextId;
+            np.role = "operator";
+            promoted = nextId;
+          }
+        }
+        refreshStatus(s);
+      } else {
+        s.supporters = s.supporters.filter((x) => x !== id);
+      }
+    }
+    participants.delete(id);
+    return promoted ? { promoted: assignmentOf(promoted) } : {};
+  }
+
+  // Erzeugt eine neue Zufallsaufgabe fuer den Teilnehmer (Stufe pro Person).
+  function assignTask(id) {
+    const p = participants.get(id);
+    if (!p) return null;
+    p.task = { minigame: minigameOf(p.stationId), level: clampLevel(p.level), seed: makeSeed() };
+    p.taskAt = now;
+    return p.task;
+  }
+
+  // Grundschwierigkeit (Leitstand). Setzt die Stufe aller Teilnehmer neu.
   function setBaseLevel(level) {
     baseLevel = clampLevel(level);
+    for (const p of participants.values()) p.level = baseLevel;
     return baseLevel;
+  }
+
+  // Adaptive Stufe: schnelle Loesungen werden schwerer, langsame leichter.
+  function adapt(p) {
+    const elapsed = now - p.taskAt;
+    if (elapsed <= FAST_SOLVE_SEC) p.level = clampLevel(p.level + 1);
+    else if (elapsed >= SLOW_SOLVE_SEC) p.level = clampLevel(p.level - 1);
+  }
+
+  // Baut die Aufgabe aus dem Seed nach und prueft die Eingabe.
+  function solve(id, input) {
+    const p = participants.get(id);
+    if (!p || !p.task) return { geloest: false, teiltreffer: 0 };
+    const mod = registry[p.task.minigame];
+    if (!mod) return { geloest: false, teiltreffer: 0 };
+    const rng = mulberry32(p.task.seed);
+    const task = mod.generate(p.task.level, rng);
+    const result = mod.validate(task, input);
+    if (result.geloest) {
+      const s = station(p.stationId);
+      if (s) {
+        if (p.role === "operator") s.stability = 1; // frisch stabilisiert
+        else s.stability = Math.min(1, s.stability + SUPPORTER_BOOST); // Co-Pilot hilft
+        refreshStatus(s);
+      }
+      adapt(p);
+    }
+    return result;
   }
 
   // Ereignis vom Leitstand. Eine Asteroidenwelle senkt die Huelle.
@@ -89,8 +176,40 @@ export function createGame(config) {
     return null;
   }
 
-  // Setzt das Spiel fuer einen neuen Anlauf zurueck. Besetzte Stationen behalten
-  // ihre Crew, brauchen aber eine frische Aufgabe (vom Server neu vergeben).
+  // Sitzordnung neu verteilen: ausgehend von der aktuellen Reihenfolge ruecken
+  // alle eine Position weiter, dann neu in Stationsreihenfolge austeilen.
+  // So sitzt jede Person an einer anderen Station; ueberzaehlige werden Co-Piloten.
+  // Jede Station startet im neuen Sektor instabil.
+  function rotate() {
+    // aktuelle Reihenfolge: zuerst Operatoren in Stationsreihenfolge, dann Co-Piloten
+    const seated = [];
+    for (const s of stations) if (s.operatorId) seated.push(s.operatorId);
+    for (const s of stations) for (const sup of s.supporters) seated.push(sup);
+    if (seated.length < 2) return; // mit hoechstens einer Person gibt es nichts zu drehen
+    const order = seated.slice(1).concat(seated.slice(0, 1)); // um eins verschieben
+
+    for (const s of stations) {
+      s.operatorId = null;
+      s.supporters = [];
+      s.stability = 0;
+    }
+    order.forEach((pid, i) => {
+      const s = stations[i % stations.length];
+      const p = participants.get(pid);
+      if (!s.operatorId) {
+        s.operatorId = pid;
+        p.role = "operator";
+      } else {
+        s.supporters.push(pid);
+        p.role = "supporter";
+      }
+      p.stationId = s.id;
+    });
+    for (const s of stations) refreshStatus(s);
+  }
+
+  // Setzt das Spiel fuer einen neuen Anlauf zurueck. Die Crew bleibt sitzen,
+  // braucht aber frische Aufgaben (vom Server neu vergeben).
   function reset() {
     shared.huelle = 100;
     shared.energie = 100;
@@ -99,31 +218,21 @@ export function createGame(config) {
     phase = "running";
     for (const s of stations) {
       s.stability = 0;
-      s.task = null;
       refreshStatus(s);
+    }
+    for (const p of participants.values()) {
+      p.task = null;
+      p.level = baseLevel;
     }
   }
 
-  // Baut die Aufgabe aus dem Seed nach und prueft die Eingabe.
-  function solve(id, input) {
-    const s = station(id);
-    if (!s || !s.task) return { geloest: false, teiltreffer: 0 };
-    const mod = registry[s.task.minigame];
-    if (!mod) return { geloest: false, teiltreffer: 0 };
-    const rng = mulberry32(s.task.seed);
-    const task = mod.generate(s.task.level, rng);
-    const result = mod.validate(task, input);
-    if (result.geloest) s.stability = 1; // frisch stabilisiert
-    refreshStatus(s);
-    return result;
-  }
-
   function tick(dtSeconds) {
-    if (phase !== "running") return; // nach Sieg oder Niederlage ruht die Simulation
+    now += dtSeconds;
+    if (phase !== "running") return { rotated: false }; // nach Sieg/Niederlage ruht die Simulation
 
     // Statusverfall: eine stabile Station faellt ohne neue Loesung auf "achtung".
     for (const s of stations) {
-      if (s.owner && s.stability > 0) {
+      if (s.operatorId && s.stability > 0) {
         s.stability = Math.max(0, s.stability - STABLE_DECAY_PER_SEC * dtSeconds);
       }
       refreshStatus(s);
@@ -142,18 +251,22 @@ export function createGame(config) {
     if (shared.huelle <= 0) {
       shared.huelle = 0;
       phase = "lost";
-      return;
+      return { rotated: false };
     }
 
-    // Kopplung: Fortschritt steigt nur, wenn die Mehrheit der Stationen stabil ist.
-    const stabil = stations.filter((s) => s.status === STATUS.STABLE).length;
-    const noetig = Math.floor(stations.length / 2) + 1;
+    // Kopplung: Fortschritt steigt nur, wenn die Mehrheit der besetzten
+    // Stationen stabil ist. Unbesetzte Stationen ziehen die Huelle, blockieren
+    // den Fortschritt aber nicht (sonst waere es fuer kleine Gruppen unspielbar).
+    const manned = stations.filter((s) => s.operatorId);
+    const stabil = manned.filter((s) => s.status === STATUS.STABLE).length;
+    const noetig = manned.length ? Math.floor(manned.length / 2) + 1 : Infinity;
     if (stabil >= noetig) {
       shared.fortschritt = Math.min(100, shared.fortschritt + PROGRESS_PER_SEC * dtSeconds);
     }
 
-    // Sektorfluss: volle Fortschrittsleiste fuehrt in den naechsten Sektor,
+    // Sektorfluss: volle Leiste fuehrt in den naechsten Sektor (mit Rollenwechsel),
     // nach dem letzten Sektor folgt der Sieg.
+    let rotated = false;
     if (shared.fortschritt >= 100) {
       if (sector >= MAX_SECTORS) {
         shared.fortschritt = 100;
@@ -161,8 +274,11 @@ export function createGame(config) {
       } else {
         sector += 1;
         shared.fortschritt = 0;
+        rotate();
+        rotated = true;
       }
     }
+    return { rotated };
   }
 
   function hostState() {
@@ -170,35 +286,47 @@ export function createGame(config) {
       sector,
       sectorCount: MAX_SECTORS,
       phase,
+      crew: participants.size,
       shared: { ...shared },
       stations: stations.map((s) => ({
         id: s.id,
         name: s.name,
         status: s.status,
         stability: s.stability,
-        owner: s.owner ? s.owner.label : null,
+        operator: s.operatorId && participants.get(s.operatorId) ? participants.get(s.operatorId).label : null,
+        supporters: s.supporters.length,
       })),
     };
   }
 
-  function controllerState(id) {
-    const s = station(id);
-    if (!s) return { phase, shared: { ...shared } };
-    return { stationId: s.id, name: s.name, status: s.status, stability: s.stability, phase, shared: { ...shared } };
+  function participantState(id) {
+    const p = participants.get(id);
+    if (!p) return { phase, shared: { ...shared } };
+    const s = station(p.stationId);
+    return {
+      role: p.role,
+      stationId: p.stationId,
+      stationName: stationName(p.stationId),
+      status: s ? s.status : STATUS.CRITICAL,
+      stability: s ? s.stability : 0,
+      phase,
+      shared: { ...shared },
+    };
   }
 
   return {
     station,
-    freeStations,
-    claimStation,
-    releaseStation,
+    addParticipant,
+    removeParticipant,
     assignTask,
+    assignmentOf,
     solve,
     setBaseLevel,
     triggerEvent,
+    rotate,
     reset,
     tick,
     hostState,
-    controllerState,
+    participantState,
   };
 }

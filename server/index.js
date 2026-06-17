@@ -99,7 +99,8 @@ const wss = new WebSocketServer({ server });
 // Ein einzelner Raum genuegt fuer das MVP. Spaeter optional mehrere Raeume.
 const game = createGame({ stations: STATIONS, baseLevel: 1 });
 const hosts = new Set();
-const controllers = new Map(); // ws -> stationId
+const controllers = new Map(); // ws -> participantId
+let nextId = 1;
 
 function send(ws, type, payload) {
   if (ws.readyState === ws.OPEN) ws.send(encode(type, payload));
@@ -111,6 +112,19 @@ function broadcast(type, payload) {
   for (const ws of controllers.keys()) send(ws, type, payload);
 }
 
+function wsOf(participantId) {
+  for (const [ws, id] of controllers) if (id === participantId) return ws;
+  return null;
+}
+
+// Einem Controller seine aktuelle Rolle und eine frische Aufgabe schicken.
+function seat(ws, participantId) {
+  const assignment = game.assignmentOf(participantId);
+  if (assignment) send(ws, S2C.ASSIGNMENT, assignment);
+  const task = game.assignTask(participantId);
+  if (task) send(ws, S2C.TASK_ASSIGNED, task);
+}
+
 wss.on("connection", (ws) => {
   ws.on("message", (raw) => {
     const msg = decode(raw.toString());
@@ -119,44 +133,37 @@ wss.on("connection", (ws) => {
     if (msg.type === C2S.JOIN) {
       if (msg.role === "host") {
         hosts.add(ws);
-        send(ws, S2C.JOINED, { role: "host", stations: STATIONS });
+        send(ws, S2C.JOINED, { role: "host" });
+        send(ws, S2C.STATE, game.hostState());
       } else {
-        send(ws, S2C.JOINED, { role: "controller", stations: game.freeStations() });
+        // Server setzt die Person selbst (Operator oder Co-Pilot) und vergibt
+        // sofort eine Aufgabe, niemand wartet.
+        const pid = `p${nextId++}`;
+        controllers.set(ws, pid);
+        game.addParticipant(pid, typeof msg.label === "string" ? msg.label.slice(0, 24) : "Crew");
+        send(ws, S2C.JOINED, { role: "controller" });
+        seat(ws, pid);
       }
-      return;
-    }
-
-    if (msg.type === C2S.PICK_STATION) {
-      const station = game.claimStation(msg.stationId, { label: msg.label || "Crew" });
-      if (!station) {
-        // Station unbekannt oder schon belegt: aktuelle Auswahl zuruecksenden,
-        // damit der Controller seine Liste auffrischt statt haengen zu bleiben.
-        send(ws, S2C.JOINED, { role: "controller", stations: game.freeStations() });
-        return;
-      }
-      controllers.set(ws, station.id);
-      const task = game.assignTask(station);
-      send(ws, S2C.TASK_ASSIGNED, task);
       return;
     }
 
     if (msg.type === C2S.SOLVE_ATTEMPT) {
-      const stationId = controllers.get(ws);
-      if (!stationId) return;
-      const result = game.solve(stationId, msg.input);
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      const result = game.solve(pid, msg.input);
       send(ws, S2C.RESULT, result);
       if (result.geloest) {
-        const task = game.assignTask(game.station(stationId)); // neue Zufallsaufgabe
-        send(ws, S2C.TASK_ASSIGNED, task);
+        const task = game.assignTask(pid); // neue Zufallsaufgabe
+        if (task) send(ws, S2C.TASK_ASSIGNED, task);
       }
       return;
     }
 
     if (msg.type === C2S.REQUEST_TASK) {
-      const stationId = controllers.get(ws);
-      if (!stationId) return;
-      const task = game.assignTask(game.station(stationId));
-      send(ws, S2C.TASK_ASSIGNED, task);
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      const task = game.assignTask(pid);
+      if (task) send(ws, S2C.TASK_ASSIGNED, task);
       return;
     }
 
@@ -177,20 +184,22 @@ wss.on("connection", (ws) => {
     if (msg.type === C2S.RESET_GAME) {
       if (!hosts.has(ws)) return;
       game.reset();
-      // Besetzte Stationen brauchen eine frische Aufgabe.
-      for (const [client, stationId] of controllers) {
-        const task = game.assignTask(game.station(stationId));
-        if (task) send(client, S2C.TASK_ASSIGNED, task);
-      }
+      // Crew bleibt sitzen, bekommt aber Rolle und Aufgabe neu bestaetigt.
+      for (const [client, pid] of controllers) seat(client, pid);
     }
   });
 
   ws.on("close", () => {
     hosts.delete(ws);
-    const stationId = controllers.get(ws);
-    if (stationId) {
-      game.releaseStation(stationId);
+    const pid = controllers.get(ws);
+    if (pid) {
       controllers.delete(ws);
+      const { promoted } = game.removeParticipant(pid);
+      // Rueckt ein Co-Pilot zum Operator nach, bekommt er Rolle und Aufgabe neu.
+      if (promoted) {
+        const pws = wsOf(promoted.id);
+        if (pws) seat(pws, promoted.id);
+      }
     }
   });
 });
@@ -198,10 +207,15 @@ wss.on("connection", (ws) => {
 // Spieltakt: Werte aktualisieren und Zustand verteilen.
 const dt = 1 / TICK_HZ;
 setInterval(() => {
-  game.tick(dt);
+  const { rotated } = game.tick(dt);
   const hostState = game.hostState();
   for (const ws of hosts) send(ws, S2C.STATE, hostState);
-  for (const [ws, stationId] of controllers) send(ws, S2C.STATE, game.controllerState(stationId));
+  for (const [ws, pid] of controllers) send(ws, S2C.STATE, game.participantState(pid));
+  // Sektorwechsel: Rollen rotieren, alle bekommen neue Sitzordnung und Aufgabe.
+  if (rotated) {
+    broadcast(S2C.EVENT, { kind: "rotate", sector: hostState.sector });
+    for (const [ws, pid] of controllers) seat(ws, pid);
+  }
 }, 1000 / TICK_HZ);
 
 server.listen(PORT, async () => {

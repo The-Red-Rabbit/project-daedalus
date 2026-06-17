@@ -122,6 +122,85 @@ body {
   color: var(--text-muted);
 }
 .hud-row { display: flex; align-items: center; gap: 10px; }
-.hud-row > span { min-width: 92px; text-transform: uppercase; letter-spacing: 0.04em; }
+.hud-row > span { min-width: 96px; text-transform: uppercase; letter-spacing: 0.04em; }
+.hud-row > b { min-width: 40px; text-align: right; font-family: var(--font-mono); color: var(--text-primary); }
 .hud .bar { flex: 1; height: 8px; background: var(--bg-void); border: 1px solid var(--edge); }
 .hud .bar > div { height: 100%; width: 0; background: var(--status-stable); transition: width 0.2s linear; }
+
+/* Lobby */
+body.has-topbar { padding-top: 52px; }
+.lobby .muted { margin-bottom: 18px; line-height: 1.5; }
+.lobby-name {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-cyan);
+  border-radius: 0;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.lobby-name:focus { outline: none; border-color: var(--accent-cyan); }
+
+/* Rollenleiste oben */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--edge);
+}
+.topbar .brand { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); }
+.topbar .chip {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg-void);
+  background: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 2px;
+  padding: 4px 10px;
+}
+.topbar .chip.supporter { color: var(--accent-yellow); background: transparent; border-color: var(--accent-yellow); }
+
+/* Verbindungsverlust */
+.disconnect {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(13, 14, 16, 0.92);
+}
+.dc-title { font-size: 22px; font-weight: 600; color: var(--accent-orange); margin-bottom: 6px; }
+
+/* Hinweis-Einblendung (z. B. Rollenwechsel) */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 15;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--accent-yellow);
+  color: var(--text-primary);
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
