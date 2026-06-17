@@ -95,7 +95,9 @@ export default {
         const tr = document.createElement("tr");
         tr.className = selected ? (match ? "ok" : "bad") : "";
         const istClass = selected && !match ? "miss" : "";
-        tr.innerHTML = `<td>${r.a}</td><td>${r.b}</td><td class="${istClass}">${ist}</td><td>${r.out}</td>`;
+        // Treffer zusaetzlich als Form markieren, nicht nur ueber Farbe.
+        const mark = selected ? (match ? " ✓" : " ✗") : "";
+        tr.innerHTML = `<td>${r.a}</td><td>${r.b}</td><td class="${istClass}">${ist}${mark}</td><td>${r.out}</td>`;
         tbody.appendChild(tr);
       });
       if (selected) {
