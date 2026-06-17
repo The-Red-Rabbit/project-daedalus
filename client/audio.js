@@ -8,6 +8,7 @@ const SAMPLE_BASE = "/assets/audio/";
 export function createAudio() {
   let ctx = null;
   const buffers = new Map();
+  let sampleSet = null; // Set der vorhandenen Sample-Cues, einmalig geladen
   let ambient = null;
 
   function ensure() {
@@ -21,8 +22,28 @@ export function createAudio() {
     if (ctx.state === "suspended") await ctx.resume();
   }
 
+  // Liest einmalig assets/audio/manifest.json (eine Liste vorhandener Cues).
+  // Nur gelistete Cues werden als Datei geladen, sonst entstuenden 404-Anfragen
+  // fuer jedes fehlende Sample. Fehlt das Manifest, gilt: keine Samples.
+  async function loadSampleSet() {
+    if (sampleSet) return sampleSet;
+    try {
+      const res = await fetch(`${SAMPLE_BASE}manifest.json`);
+      const list = res.ok ? await res.json() : [];
+      sampleSet = new Set(Array.isArray(list) ? list : []);
+    } catch {
+      sampleSet = new Set();
+    }
+    return sampleSet;
+  }
+
   async function tryLoadSample(cue) {
     if (buffers.has(cue)) return buffers.get(cue);
+    const present = await loadSampleSet();
+    if (!present.has(cue)) {
+      buffers.set(cue, null);
+      return null;
+    }
     try {
       const res = await fetch(`${SAMPLE_BASE}${cue}.mp3`);
       if (!res.ok) throw new Error("kein Sample");
