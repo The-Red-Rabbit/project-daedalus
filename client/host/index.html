@@ -12,11 +12,13 @@
   #overlay { position: absolute; inset: 0; pointer-events: none; padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
   .panel { background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 4px; padding: 12px 14px; pointer-events: auto; }
   .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-  .values { display: flex; gap: 18px; }
-  .value { min-width: 120px; }
-  .value .label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
-  .bar { height: 8px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 4px; }
-  .bar > div { height: 100%; width: 0; }
+  .values { display: flex; gap: 20px; }
+  .value { min-width: 150px; }
+  .vhead { display: flex; justify-content: space-between; align-items: baseline; }
+  .value .label { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .value b { font-family: var(--font-mono); font-size: 17px; color: var(--text-primary); }
+  .bar { height: 10px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
+  .bar > div { height: 100%; width: 0; transition: width 0.2s linear; }
   .stations { display: flex; gap: 10px; flex-wrap: wrap; max-width: 60%; }
   .station { min-width: 132px; }
   .station .name { font-weight: 600; font-size: 15px; }
@@ -68,9 +70,9 @@
           <div id="crew" style="font-size:13px; color:var(--text-muted); margin-top:2px;">Crew 0</div>
         </div>
         <div class="panel values">
-          <div class="value"><div class="label">Hülle</div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>
-          <div class="value"><div class="label">Energie</div><div class="bar"><div id="v-energie" style="background:var(--accent-yellow);"></div></div></div>
-          <div class="value"><div class="label">Fortschritt</div><div class="bar"><div id="v-fortschritt" style="background:var(--accent-cyan);"></div></div></div>
+          <div class="value"><div class="vhead"><span class="label">Hülle</span><b id="n-huelle">100%</b></div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>
+          <div class="value"><div class="vhead"><span class="label">Energie</span><b id="n-energie">100%</b></div><div class="bar"><div id="v-energie" style="background:var(--accent-yellow);"></div></div></div>
+          <div class="value"><div class="vhead"><span class="label">Fortschritt</span><b id="n-fortschritt">0%</b></div><div class="bar"><div id="v-fortschritt" style="background:var(--accent-cyan);"></div></div></div>
         </div>
       </div>
 
@@ -87,6 +89,7 @@
                 <option value="3">3 schwer</option>
               </select>
             </label>
+            <button id="btn-reset">Runde neu</button>
             <button id="btn-audio">Ton an</button>
           </div>
           <div class="panel join">

@@ -65,6 +65,9 @@ function updateState(state) {
   el("v-huelle").style.width = `${state.shared.huelle}%`;
   el("v-energie").style.width = `${state.shared.energie}%`;
   el("v-fortschritt").style.width = `${state.shared.fortschritt}%`;
+  el("n-huelle").textContent = `${Math.round(state.shared.huelle)}%`;
+  el("n-energie").textContent = `${Math.round(state.shared.energie)}%`;
+  el("n-fortschritt").textContent = `${Math.round(state.shared.fortschritt)}%`;
   renderStations(state.stations);
   renderer.setState(state);
   applyPhase(state.phase);
@@ -125,6 +128,10 @@ el("sel-difficulty").addEventListener("change", (e) => {
 });
 
 el("btn-restart").addEventListener("click", () => {
+  net.send(C2S.RESET_GAME);
+});
+
+el("btn-reset").addEventListener("click", () => {
   net.send(C2S.RESET_GAME);
 });
 
