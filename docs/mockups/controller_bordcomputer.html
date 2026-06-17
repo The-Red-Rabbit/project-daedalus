@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controller Bordcomputer (Mock-up)</title>
+<style>
+  :root{
+    --bg-primary:#ffffff; --bg-secondary:#f7f6f2; --bg-tertiary:#efede6;
+    --bg-info:#E6F1FB; --bg-success:#EAF3DE; --bg-warning:#FAEEDA; --bg-danger:#FCEBEB;
+    --t-primary:#1f1f1d; --t-secondary:#5f5e5a; --t-tertiary:#888780;
+    --t-info:#0C447C; --t-success:#3B6D11; --t-warning:#854F0B; --t-danger:#A32D2D;
+    --success:#639922; --info:#378ADD;
+    --b-secondary:rgba(0,0,0,0.18); --b-tertiary:rgba(0,0,0,0.10);
+    --r-md:8px; --r-xl:16px;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  body{background:#faf9f5;margin:0;padding:20px;font-family:var(--sans);color:var(--t-primary);}
+  .phone{max-width:320px;margin:0 auto;background:var(--bg-primary);border:1px solid var(--b-secondary);border-radius:var(--r-xl);padding:16px;}
+  .head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .pill{font-size:12px;font-weight:500;color:var(--t-warning);background:var(--bg-warning);padding:3px 9px;border-radius:10px;}
+  .auftrag{background:var(--bg-secondary);border:1px solid var(--b-tertiary);border-radius:var(--r-md);padding:10px;margin-bottom:14px;}
+  .gates{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:14px;}
+  .gate{text-align:center;font-size:13px;padding:7px 0;border-radius:var(--r-md);border:1px solid var(--b-secondary);background:var(--bg-primary);}
+  .gate.sel{border-color:var(--info);color:var(--t-info);background:var(--bg-info);font-weight:500;}
+  table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:12px;}
+  th{font-size:12px;font-weight:500;color:var(--t-secondary);padding:4px 0;}
+  td{text-align:center;padding:6px 0;}
+  .ok{background:var(--bg-success);}
+  .bad{background:var(--bg-danger);}
+  .miss{color:var(--t-danger);font-weight:500;}
+  .hint{display:flex;gap:6px;font-size:13px;color:var(--t-secondary);margin-bottom:14px;}
+  .confirm{width:100%;font-size:15px;font-weight:500;color:var(--t-tertiary);background:var(--bg-secondary);border:1px solid var(--b-tertiary);border-radius:var(--r-md);padding:10px 0;cursor:not-allowed;margin-bottom:14px;}
+  .bar{height:7px;background:var(--bg-tertiary);border-radius:6px;}
+  .bar > div{height:7px;border-radius:6px;background:var(--success);}
+</style>
+</head>
+<body>
+  <div class="phone">
+    <div class="head">
+      <div style="font-size:18px;font-weight:500;">Bordcomputer</div>
+      <span class="pill">instabil</span>
+    </div>
+
+    <div class="auftrag">
+      <div style="font-size:12px;color:var(--t-tertiary);margin-bottom:3px;">Auftrag</div>
+      <div style="font-size:14px;line-height:1.5;">Das Schott darf nur öffnen, wenn beide Schlüssel stecken.</div>
+    </div>
+
+    <div style="font-size:13px;color:var(--t-secondary);margin-bottom:6px;">Wähle das Bauteil</div>
+    <div class="gates">
+      <div class="gate">UND</div>
+      <div class="gate sel">ODER</div>
+      <div class="gate">XOR</div>
+      <div class="gate">NICHT</div>
+    </div>
+
+    <table>
+      <thead><tr><th>A</th><th>B</th><th>Ist</th><th>Ziel</th></tr></thead>
+      <tbody>
+        <tr class="ok"><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr class="bad"><td>0</td><td>1</td><td class="miss">1</td><td>0</td></tr>
+        <tr class="bad"><td>1</td><td>0</td><td class="miss">1</td><td>0</td></tr>
+        <tr class="ok"><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+      </tbody>
+    </table>
+
+    <div class="hint">Zwei Zeilen stimmen noch nicht.</div>
+
+    <button class="confirm">Bestätigen</button>
+
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t-secondary);margin-bottom:5px;">
+      <span>Schiffshülle</span><span>Stufe 1 von 3</span>
+    </div>
+    <div class="bar"><div style="width:72%;"></div></div>
+  </div>
+</body>
+</html>

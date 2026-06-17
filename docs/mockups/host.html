@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Host-Anzeige (Mock-up)</title>
+<style>
+  :root{
+    --bg-primary:#ffffff; --bg-secondary:#f7f6f2; --bg-tertiary:#efede6;
+    --bg-info:#E6F1FB; --bg-success:#EAF3DE; --bg-warning:#FAEEDA; --bg-danger:#FCEBEB;
+    --t-primary:#1f1f1d; --t-secondary:#5f5e5a; --t-tertiary:#888780;
+    --t-info:#0C447C; --t-success:#3B6D11; --t-warning:#854F0B; --t-danger:#A32D2D;
+    --success:#639922; --warning:#BA7517; --info:#378ADD; --danger:#E24B4A;
+    --b-secondary:rgba(0,0,0,0.18); --b-tertiary:rgba(0,0,0,0.10);
+    --r-md:8px; --r-lg:12px;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  body{background:#faf9f5;margin:0;padding:20px;font-family:var(--sans);color:var(--t-primary);}
+  .card{max-width:760px;margin:0 auto;background:var(--bg-primary);border:1px solid var(--b-secondary);border-radius:var(--r-lg);padding:18px;}
+  .row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:14px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+  .bar{height:9px;background:var(--bg-tertiary);border-radius:6px;}
+  .bar > div{height:9px;border-radius:6px;}
+  .label{display:flex;justify-content:space-between;font-size:13px;color:var(--t-secondary);margin-bottom:4px;}
+  .viewport{position:relative;background:var(--bg-tertiary);border:1px solid var(--b-tertiary);border-radius:var(--r-md);height:140px;overflow:hidden;margin:16px 0;}
+  .banner{position:absolute;top:8px;right:8px;background:var(--bg-danger);color:var(--t-danger);font-size:12px;font-weight:500;padding:3px 8px;border-radius:6px;}
+  .tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .tile{background:var(--bg-secondary);border:1px solid var(--b-tertiary);border-radius:var(--r-md);padding:10px;}
+  .tile .name{font-weight:500;}
+  .tile .who{font-size:13px;color:var(--t-secondary);margin:2px 0 6px;}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+  .leitstand{background:var(--bg-secondary);border:1px solid var(--b-tertiary);border-radius:var(--r-md);padding:12px;}
+  .controls{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  button{font-size:14px;color:var(--t-primary);background:var(--bg-primary);border:1px solid var(--b-secondary);border-radius:var(--r-md);padding:6px 12px;cursor:pointer;}
+  h1{font-size:18px;font-weight:500;margin:0;}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="row">
+      <h1>Sektor 3 von 6</h1>
+      <div style="font-size:14px;color:var(--t-secondary);">Ziel: Asteroidenfeld durchqueren</div>
+    </div>
+
+    <div class="grid3">
+      <div><div class="label"><span>Hülle</span><span>72%</span></div><div class="bar"><div style="width:72%;background:var(--success);"></div></div></div>
+      <div><div class="label"><span>Energie</span><span>55%</span></div><div class="bar"><div style="width:55%;background:var(--warning);"></div></div></div>
+      <div><div class="label"><span>Fortschritt</span><span>40%</span></div><div class="bar"><div style="width:40%;background:var(--info);"></div></div></div>
+    </div>
+
+    <div class="viewport">
+      <svg width="100%" height="140" viewBox="0 0 600 140" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Schiff fliegt durch ein Asteroidenfeld">
+        <circle cx="90" cy="38" r="14" fill="#b4b2a9" opacity="0.6"/>
+        <circle cx="180" cy="100" r="20" fill="#b4b2a9" opacity="0.5"/>
+        <circle cx="430" cy="46" r="16" fill="#b4b2a9" opacity="0.6"/>
+        <circle cx="520" cy="104" r="11" fill="#b4b2a9" opacity="0.5"/>
+        <g transform="translate(300,70)">
+          <path d="M-26 -16 L24 0 L-26 16 L-14 0 Z" fill="#378ADD"/>
+          <circle cx="-6" cy="0" r="5" fill="#ffffff"/>
+        </g>
+      </svg>
+      <div class="banner">Asteroidenwelle in 8 s</div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="name">Antrieb</div><div class="who">J. K.</div><div style="font-size:13px;color:var(--t-success);"><span class="dot" style="background:var(--success);"></span>stabil</div></div>
+      <div class="tile"><div class="name">Navigation</div><div class="who">L. M.</div><div style="font-size:13px;color:var(--t-success);"><span class="dot" style="background:var(--success);"></span>stabil</div></div>
+      <div class="tile"><div class="name">Schilde</div><div class="who">A. R.</div><div style="font-size:13px;color:var(--t-warning);"><span class="dot" style="background:var(--warning);"></span>Achtung</div></div>
+      <div class="tile"><div class="name">Bordcomputer</div><div class="who">M. S.</div><div style="font-size:13px;color:var(--t-warning);"><span class="dot" style="background:var(--warning);"></span>Achtung</div></div>
+      <div class="tile"><div class="name">Reaktor</div><div class="who">unbesetzt</div><div style="font-size:13px;color:var(--t-danger);"><span class="dot" style="background:var(--danger);"></span>kritisch</div></div>
+      <div class="tile"><div class="name">Sensorik</div><div class="who">P. D.</div><div style="font-size:13px;color:var(--t-success);"><span class="dot" style="background:var(--success);"></span>stabil</div></div>
+    </div>
+
+    <div class="leitstand">
+      <div style="margin-bottom:10px;"><span style="font-weight:500;">Leitstand</span> <span style="font-size:12px;color:var(--t-tertiary);">nur für die Lehrkraft</span></div>
+      <div class="controls">
+        <label style="font-size:13px;color:var(--t-secondary);display:flex;align-items:center;gap:8px;">Grundschwierigkeit
+          <input type="range" min="1" max="3" value="2" style="accent-color:var(--info);"></label>
+        <button>Ereignis auslösen</button>
+        <button>Unterstützer zuweisen</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

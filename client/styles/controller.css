@@ -1,0 +1,113 @@
+/* Controller-Optik: dunkle Metallpanels, harte Kanten, funktionale Akzente. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-user-select: none;
+  user-select: none;
+  padding-bottom: 52px;
+}
+#app { max-width: 480px; margin: 0 auto; }
+.screen { padding: 16px; }
+.title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 4px 0 14px;
+}
+.muted { color: var(--text-muted); }
+
+/* Stationsauswahl */
+.station-list { display: grid; gap: 10px; }
+.station-btn {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-orange);
+  border-radius: 0;
+  padding: 16px;
+  cursor: pointer;
+}
+.station-btn:active { background: var(--bg-panel-2); }
+
+/* Bordcomputer */
+.bc-scenario {
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-yellow);
+  padding: 12px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.bc-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.bc-hintline { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.bc-gates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.bc-gate {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  padding: 12px 0;
+  cursor: pointer;
+}
+.bc-gate.sel { border-color: var(--accent-cyan); color: var(--accent-cyan); background: var(--bg-panel-2); }
+
+.bc-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); margin-bottom: 12px; }
+.bc-table th { font-size: 12px; color: var(--text-muted); font-weight: 400; padding: 6px 0; }
+.bc-table td { text-align: center; padding: 10px 0; border-top: 1px solid var(--edge); }
+.bc-table tr.ok td { background: rgba(155, 191, 106, 0.14); }
+.bc-table tr.bad td { background: rgba(210, 58, 54, 0.16); }
+.bc-table .miss { color: var(--accent-red); font-weight: 500; }
+
+.bc-hint { min-height: 20px; font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+
+.bc-confirm {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg-void);
+  background: var(--accent-orange);
+  border: none;
+  padding: 14px 0;
+  cursor: pointer;
+}
+.bc-confirm:disabled {
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  cursor: not-allowed;
+}
+
+/* Huellen-Leiste am unteren Rand */
+.hull {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--edge);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.hull-bar { flex: 1; height: 8px; background: var(--bg-void); border: 1px solid var(--edge); }
+.hull-bar > div { height: 100%; width: 100%; background: var(--status-stable); }
