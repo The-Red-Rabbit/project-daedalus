@@ -29,6 +29,7 @@ export const STATUS = { STABLE: "stabil", WARN: "achtung", CRITICAL: "kritisch" 
 // Standard-Stationen des MVP. Weitere folgen, sobald ihre Mini-Spiele existieren.
 export const STATIONS = [
   { id: "bordcomputer", name: "Bordcomputer", minigame: "bordcomputer" },
+  { id: "sensorik", name: "Sensorik", minigame: "tiefpassfilter" },
 ];
 
 export function encode(type, payload = {}) {

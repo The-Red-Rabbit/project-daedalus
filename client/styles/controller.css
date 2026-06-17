@@ -94,6 +94,18 @@ body {
   cursor: not-allowed;
 }
 
+/* Tiefpassfilter (Station Sensorik) */
+.tp-canvas { width: 100%; display: block; border: 1px solid var(--edge); background: var(--bg-void); margin-bottom: 10px; }
+.tp-readout { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+.tp-readout b { font-family: var(--font-mono); color: var(--text-primary); }
+.tp-readout span:last-child b { color: var(--accent-yellow); }
+.tp-controls { display: grid; gap: 12px; margin-bottom: 14px; }
+.tp-row, .tp-fixed { display: flex; align-items: center; gap: 12px; }
+.tp-row-label { width: 18px; font-family: var(--font-mono); color: var(--text-muted); }
+.tp-row input[type="range"] { flex: 1; accent-color: var(--accent-cyan); }
+.tp-row-val { width: 84px; text-align: right; font-family: var(--font-mono); color: var(--accent-cyan); }
+.tp-fixed b { font-family: var(--font-mono); color: var(--text-primary); }
+
 /* Status-HUD am unteren Rand: Schiffshuelle und eigene Stationsstabilitaet */
 .hud {
   position: fixed;
