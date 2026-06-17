@@ -30,6 +30,7 @@ export const STATUS = { STABLE: "stabil", WARN: "achtung", CRITICAL: "kritisch" 
 export const STATIONS = [
   { id: "bordcomputer", name: "Bordcomputer", minigame: "bordcomputer" },
   { id: "sensorik", name: "Sensorik", minigame: "tiefpassfilter" },
+  { id: "navigation", name: "Navigation", minigame: "zahlensysteme" },
 ];
 
 export function encode(type, payload = {}) {
