@@ -171,6 +171,17 @@ wss.on("connection", (ws) => {
     if (msg.type === C2S.SET_DIFFICULTY) {
       if (!hosts.has(ws)) return;
       game.setBaseLevel(msg.level);
+      return;
+    }
+
+    if (msg.type === C2S.RESET_GAME) {
+      if (!hosts.has(ws)) return;
+      game.reset();
+      // Besetzte Stationen brauchen eine frische Aufgabe.
+      for (const [client, stationId] of controllers) {
+        const task = game.assignTask(game.station(stationId));
+        if (task) send(client, S2C.TASK_ASSIGNED, task);
+      }
     }
   });
 

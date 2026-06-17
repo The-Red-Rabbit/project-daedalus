@@ -12,6 +12,7 @@ const STABLE_DECAY_PER_SEC = 0.12; // stabil haelt rund 8 Sekunden ohne neue Loe
 const HULL_DRAIN_CRITICAL = 1.5;   // unbesetzte Station, Huelle pro Sekunde
 const HULL_DRAIN_WARN = 0.6;       // besetzt, aber nicht stabil, Huelle pro Sekunde
 const PROGRESS_PER_SEC = 8;        // Fortschritt pro Sekunde bei genug stabilen Stationen
+const MAX_SECTORS = 3;             // nach dem letzten Sektor folgt der Sieg
 
 function clampLevel(level) {
   const n = Math.floor(Number(level));
@@ -39,6 +40,7 @@ export function createGame(config) {
 
   const shared = { huelle: 100, energie: 100, fortschritt: 0 };
   let sector = 1;
+  let phase = "running"; // "running" | "won" | "lost"
   let baseLevel = clampLevel(config.baseLevel || 1);
 
   const station = (id) => stations.find((s) => s.id === id) || null;
@@ -78,11 +80,28 @@ export function createGame(config) {
 
   // Ereignis vom Leitstand. Eine Asteroidenwelle senkt die Huelle.
   function triggerEvent(kind) {
+    if (phase !== "running") return null;
     if (kind === "asteroid") {
       shared.huelle = Math.max(0, shared.huelle - ASTEROID_DAMAGE);
+      if (shared.huelle <= 0) phase = "lost";
       return { kind: "asteroid", damage: ASTEROID_DAMAGE };
     }
     return null;
+  }
+
+  // Setzt das Spiel fuer einen neuen Anlauf zurueck. Besetzte Stationen behalten
+  // ihre Crew, brauchen aber eine frische Aufgabe (vom Server neu vergeben).
+  function reset() {
+    shared.huelle = 100;
+    shared.energie = 100;
+    shared.fortschritt = 0;
+    sector = 1;
+    phase = "running";
+    for (const s of stations) {
+      s.stability = 0;
+      s.task = null;
+      refreshStatus(s);
+    }
   }
 
   // Baut die Aufgabe aus dem Seed nach und prueft die Eingabe.
@@ -100,6 +119,8 @@ export function createGame(config) {
   }
 
   function tick(dtSeconds) {
+    if (phase !== "running") return; // nach Sieg oder Niederlage ruht die Simulation
+
     // Statusverfall: eine stabile Station faellt ohne neue Loesung auf "achtung".
     for (const s of stations) {
       if (s.owner && s.stability > 0) {
@@ -117,6 +138,13 @@ export function createGame(config) {
     }
     if (drain > 0) shared.huelle = Math.max(0, shared.huelle - drain * dtSeconds);
 
+    // Niederlage: leere Huelle beendet den Durchlauf.
+    if (shared.huelle <= 0) {
+      shared.huelle = 0;
+      phase = "lost";
+      return;
+    }
+
     // Kopplung: Fortschritt steigt nur, wenn die Mehrheit der Stationen stabil ist.
     const stabil = stations.filter((s) => s.status === STATUS.STABLE).length;
     const noetig = Math.floor(stations.length / 2) + 1;
@@ -124,12 +152,24 @@ export function createGame(config) {
       shared.fortschritt = Math.min(100, shared.fortschritt + PROGRESS_PER_SEC * dtSeconds);
     }
 
-    // (T4 ergaenzt hier Sektorwechsel und Spielende.)
+    // Sektorfluss: volle Fortschrittsleiste fuehrt in den naechsten Sektor,
+    // nach dem letzten Sektor folgt der Sieg.
+    if (shared.fortschritt >= 100) {
+      if (sector >= MAX_SECTORS) {
+        shared.fortschritt = 100;
+        phase = "won";
+      } else {
+        sector += 1;
+        shared.fortschritt = 0;
+      }
+    }
   }
 
   function hostState() {
     return {
       sector,
+      sectorCount: MAX_SECTORS,
+      phase,
       shared: { ...shared },
       stations: stations.map((s) => ({
         id: s.id,
@@ -143,8 +183,8 @@ export function createGame(config) {
 
   function controllerState(id) {
     const s = station(id);
-    if (!s) return { shared: { ...shared } };
-    return { stationId: s.id, name: s.name, status: s.status, stability: s.stability, shared: { ...shared } };
+    if (!s) return { phase, shared: { ...shared } };
+    return { stationId: s.id, name: s.name, status: s.status, stability: s.stability, phase, shared: { ...shared } };
   }
 
   return {
@@ -156,6 +196,7 @@ export function createGame(config) {
     solve,
     setBaseLevel,
     triggerEvent,
+    reset,
     tick,
     hostState,
     controllerState,

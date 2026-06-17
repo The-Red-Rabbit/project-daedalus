@@ -41,12 +41,38 @@ const net = connect({
 });
 
 function updateState(state) {
-  el("sector").textContent = `Sektor ${state.sector}`;
+  el("sector").textContent = `Sektor ${state.sector} / ${state.sectorCount}`;
   el("v-huelle").style.width = `${state.shared.huelle}%`;
   el("v-energie").style.width = `${state.shared.energie}%`;
   el("v-fortschritt").style.width = `${state.shared.fortschritt}%`;
   renderStations(state.stations);
   renderer.setState(state);
+  applyPhase(state.phase);
+}
+
+let prevPhase = "running";
+function applyPhase(phase) {
+  const box = el("result");
+  if (phase === "running") {
+    box.hidden = true;
+  } else {
+    const card = el("result-card");
+    card.classList.toggle("lost", phase === "lost");
+    el("result-title").textContent = phase === "won" ? "Sieg" : "Niederlage";
+    el("result-text").textContent =
+      phase === "won"
+        ? "Die Daedalus hat das Asteroidenfeld durchquert."
+        : "Die Hülle ist zusammengebrochen.";
+    box.hidden = false;
+  }
+  if (phase !== prevPhase) {
+    if (phase === "won") audio.play("ui.confirm");
+    if (phase === "lost") {
+      audio.play("ui.error");
+      audio.play("impact.hull");
+    }
+    prevPhase = phase;
+  }
 }
 
 function renderStations(stations) {
@@ -73,6 +99,10 @@ el("btn-event").addEventListener("click", () => {
 
 el("sel-difficulty").addEventListener("change", (e) => {
   net.send(C2S.SET_DIFFICULTY, { level: Number(e.target.value) });
+});
+
+el("btn-restart").addEventListener("click", () => {
+  net.send(C2S.RESET_GAME);
 });
 
 el("btn-audio").addEventListener("click", async () => {

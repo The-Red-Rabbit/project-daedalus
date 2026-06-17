@@ -30,6 +30,14 @@
   .join .join-url { color: var(--accent-cyan); font-family: var(--font-mono); margin-top: 2px; }
   .qr { background: #fff; padding: 6px; border-radius: 3px; line-height: 0; }
   .qr svg { display: block; width: 120px; height: 120px; }
+  #result { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.74); z-index: 10; }
+  #result[hidden] { display: none; }
+  .result-card { background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 4px; padding: 34px 46px; text-align: center; }
+  .result-card.lost { border-top-color: var(--accent-red); }
+  .result-title { font-size: 44px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); }
+  .result-card.lost .result-title { color: var(--accent-red); }
+  .result-text { color: var(--text-muted); margin: 12px 0 22px; }
+  #btn-restart { font-size: 15px; padding: 10px 20px; }
   .leitstand { display: flex; gap: 10px; align-items: center; }
   button { font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 7px 12px; cursor: pointer; }
   button:hover { border-color: var(--accent-orange); }
@@ -41,6 +49,13 @@
 <body>
   <div id="stage">
     <canvas id="scene"></canvas>
+    <div id="result" hidden>
+      <div class="result-card" id="result-card">
+        <div class="result-title" id="result-title">Sieg</div>
+        <div class="result-text" id="result-text"></div>
+        <button id="btn-restart">Neuer Anlauf</button>
+      </div>
+    </div>
     <div id="overlay">
       <div class="topbar">
         <div class="panel">

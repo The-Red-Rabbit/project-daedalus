@@ -121,3 +121,62 @@ test("Leitstand: setBaseLevel begrenzt auf 1..3 und steuert neue Aufgaben", () =
   assert.equal(game.setBaseLevel(0), 1);
   assert.equal(game.assignTask(game.station("bordcomputer")).level, 1);
 });
+
+// Haelt die Station ueber wiederholtes Loesen stabil und tickt eine Sekunde.
+function holdStableTick(game, id) {
+  solveCorrectly(game, id);
+  game.tick(1);
+}
+
+test("Sektorfluss: volle Fortschrittsleiste fuehrt in den naechsten Sektor", () => {
+  const game = createGame({ stations: ONE, baseLevel: 1 });
+  game.claimStation("bordcomputer", { label: "Crew" });
+  for (let i = 0; i < 20 && game.hostState().sector < 2; i++) holdStableTick(game, "bordcomputer");
+  const hs = game.hostState();
+  assert.equal(hs.sector, 2);
+  assert.ok(hs.shared.fortschritt < 100); // nach dem Wechsel zurueckgesetzt
+});
+
+test("Sieg: nach dem letzten Sektor endet der Durchlauf als Sieg", () => {
+  const game = createGame({ stations: ONE, baseLevel: 1 });
+  game.claimStation("bordcomputer", { label: "Crew" });
+  for (let i = 0; i < 80 && game.hostState().phase === "running"; i++) holdStableTick(game, "bordcomputer");
+  const hs = game.hostState();
+  assert.equal(hs.phase, "won");
+  assert.equal(hs.sector, 3); // MAX_SECTORS
+  // nach Spielende ruht die Simulation
+  const before = game.hostState().shared.fortschritt;
+  game.tick(1);
+  assert.equal(game.hostState().shared.fortschritt, before);
+});
+
+test("Niederlage: leere Huelle beendet den Durchlauf", () => {
+  const game = createGame({ stations: ONE, baseLevel: 1 }); // unbesetzt -> Dauerverlust
+  for (let i = 0; i < 100 && game.hostState().phase === "running"; i++) game.tick(1);
+  const hs = game.hostState();
+  assert.equal(hs.phase, "lost");
+  assert.equal(hs.shared.huelle, 0);
+});
+
+test("Leitstand: nach Spielende wird kein Ereignis mehr verarbeitet", () => {
+  const game = createGame({ stations: ONE, baseLevel: 1 });
+  for (let i = 0; i < 100 && game.hostState().phase === "running"; i++) game.tick(1);
+  assert.equal(game.hostState().phase, "lost");
+  assert.equal(game.triggerEvent("asteroid"), null);
+});
+
+test("reset: neuer Anlauf setzt Werte zurueck, Crew bleibt", () => {
+  const game = createGame({ stations: ONE, baseLevel: 1 });
+  game.claimStation("bordcomputer", { label: "Crew" });
+  solveCorrectly(game, "bordcomputer");
+  game.triggerEvent("asteroid");
+  game.reset();
+  const hs = game.hostState();
+  assert.equal(hs.phase, "running");
+  assert.equal(hs.sector, 1);
+  assert.deepEqual(hs.shared, { huelle: 100, energie: 100, fortschritt: 0 });
+  const s = game.station("bordcomputer");
+  assert.equal(s.owner.label, "Crew"); // Crew bleibt
+  assert.equal(s.task, null); // Aufgabe wird neu vergeben
+  assert.equal(s.status, "achtung"); // besetzt, aber nicht stabil
+});

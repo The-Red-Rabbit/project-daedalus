@@ -11,6 +11,7 @@ export const C2S = {
   REQUEST_TASK: "requestTask", // {}
   TRIGGER_EVENT: "triggerEvent", // { kind } z. B. "asteroid" (nur Host/Leitstand)
   SET_DIFFICULTY: "setDifficulty", // { level: 1 | 2 | 3 } (nur Host/Leitstand)
+  RESET_GAME: "resetGame", // {} neuer Anlauf nach Sieg oder Niederlage (nur Host)
 };
 
 // Nachrichten Server -> Client
