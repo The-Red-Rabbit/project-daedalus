@@ -8,6 +8,7 @@ const el = (id) => document.getElementById(id);
 const canvas = el("scene");
 const renderer = createRenderer(canvas);
 const audio = createAudio();
+let audioOn = false; // erst nach "Ton an" darf Audio spielen
 
 const statusColor = {
   [STATUS.STABLE]: "var(--status-stable)",
@@ -71,6 +72,8 @@ function updateState(state) {
   renderStations(state.stations);
   renderer.setState(state);
   applyPhase(state.phase);
+  // Alarmbett bei kritischer Huelle (nur wenn der Ton freigegeben ist).
+  if (audioOn) audio.setAlarm(state.phase === "running" && state.shared.huelle <= 30);
 }
 
 let prevPhase = "running";
@@ -138,6 +141,8 @@ el("btn-reset").addEventListener("click", () => {
 el("btn-audio").addEventListener("click", async () => {
   await audio.unlock();
   audio.startAmbient();
+  audioOn = true;
+  el("btn-audio").textContent = "Ton an ✓";
 });
 
 renderer.start();
