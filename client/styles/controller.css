@@ -69,8 +69,8 @@ body {
 .bc-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); margin-bottom: 12px; }
 .bc-table th { font-size: 12px; color: var(--text-muted); font-weight: 400; padding: 6px 0; }
 .bc-table td { text-align: center; padding: 10px 0; border-top: 1px solid var(--edge); }
-.bc-table tr.ok td { background: rgba(155, 191, 106, 0.14); }
-.bc-table tr.bad td { background: rgba(210, 58, 54, 0.16); }
+.bc-table tr.ok td { background: color-mix(in srgb, var(--status-stable) 14%, transparent); }
+.bc-table tr.bad td { background: color-mix(in srgb, var(--status-critical) 16%, transparent); }
 .bc-table .miss { color: var(--accent-red); font-weight: 500; }
 
 .bc-hint { min-height: 20px; font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }

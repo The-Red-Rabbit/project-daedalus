@@ -37,7 +37,7 @@ export function createRenderer(canvas) {
     ctx.translate(w * 0.5, h * 0.5 + bob);
     ctx.fillStyle = css("--steel", "#3a4a5a");
     ctx.fillRect(-70, -22, 150, 44);
-    ctx.fillStyle = css("--steel-dark", "#2b2e31");
+    ctx.fillStyle = css("--steel-dark", "#232a30");
     ctx.fillRect(-92, -12, 30, 24);
     ctx.fillStyle = css("--accent-orange", "#e8761a");
     ctx.fillRect(-40, -22, 10, 44);
