@@ -74,10 +74,10 @@ Der Server tickt mit fester Rate (Vorgabe 10 Hz), aktualisiert die geteilten Wer
 
 Nachrichtentypen liegen in `shared/protocol.js`. Auszug:
 
-- Client an Server: `join`, `pickStation`, `solveAttempt`, `requestTask`
-- Server an Client: `state`, `taskAssigned`, `event`, `joined`
+- Client an Server: `join`, `pickStation`, `solveAttempt`, `requestTask`, `triggerEvent`, `setDifficulty`, `resetGame`
+- Server an Client: `joined`, `state`, `taskAssigned`, `result`, `event`
 
-Der Host erhält im `state` die Gesamtansicht, ein Controller nur seine Stationsansicht.
+`triggerEvent` (Asteroidenwelle), `setDifficulty` (Grundstufe) und `resetGame` (neuer Anlauf) nimmt der Server nur vom Host an (Leitstand). Der Host erhält im `state` die Gesamtansicht samt Sektor, Phase und Stationsstabilität, ein Controller nur seine Stationsansicht.
 
 ## Zufallsgenerierung der Mini-Spiele
 
@@ -148,17 +148,18 @@ Cue-Katalog (Startumfang):
 npm install
 npm start          # Server auf http://localhost:3000
 npm run dev        # mit automatischem Neustart
+npm test           # reine Logik-Tests (node:test)
 ```
 
 Host öffnen unter `/host`, einen Controller testweise unter `/controller`. Im selben WLAN verbinden sich Smartphones über den QR-Code, den der Host anzeigt.
 
 ## Aufgaben für Claude Code
 
-Das Grundgerüst steht und läuft: Server, Host, Controller, Mini-Spiel-Schnittstelle, der fertige Bordcomputer, die Audio-Engine und die Designtokens. Die offenen Schritte zum runden MVP liegen als abgegrenzte Tickets in `TASKS.md`. Dort steht je Ticket Ziel, betroffene Dateien, Vorgehen und Abnahmekriterium.
+Das MVP ist umgesetzt (Stand 17.06.2026). Lauffähig sind: Server mit autoritativer Logik, Host mit Schiffsszene, HUD, Leitstand und sichtbarem Beitritts-QR, Controller mit Stationswahl, zwei voll spielbare Mini-Spiele (Bordcomputer, Themenfeld 3, und Tiefpassfilter auf der Station Sensorik, Themenfeld 2), die Audio-Engine und die Designtokens.
 
-Zum MVP gehören zwei spielbare Mini-Spiele: der fertige Bordcomputer (Themenfeld 3) und der geplante Tiefpassfilter (Themenfeld 2, Ticket T6).
+Der Spielablauf: Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus und setzt die Grundschwierigkeit.
 
-Reihenfolge laut `TASKS.md`: sichtbarer QR auf dem Host (T1), Leitstand an den Server (T2), Statusverfall und Nachjustieren (T3), Sektorfluss und Spielende (T4), zweites Mini-Spiel Tiefpassfilter (T6). Rollenrotation (T5) und echte Assets in den Slots sind spätere Schritte.
+Erledigt sind die Tickets T1 bis T4 und T6 (siehe `TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und einen Durchlauf mit zwei Controllern. Offen bleibt T5 (Rollenrotation und Unterstützerrolle) und echte Assets in den Slots unter `assets/`.
 
 ## Konventionen
 

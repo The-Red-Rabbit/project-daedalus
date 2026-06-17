@@ -4,7 +4,9 @@ Abgegrenzte Aufgaben für Claude Code. Das Grundgerüst steht und läuft (Server
 
 Reihenfolge: T1 bis T4 und T6 bilden das MVP. T5 ist ein späterer Schritt. Jedes Ticket nennt Ziel, betroffene Dateien, Vorgehen und ein Abnahmekriterium. Bezeichner im Code auf Englisch, sichtbare Texte auf Deutsch, generate und validate bleiben ohne DOM.
 
-## T1: Sichtbarer QR-Code auf der Host-Seite
+Stand 17.06.2026: Das MVP ist umgesetzt. T1, T2, T3, T4 und T6 sind erledigt und durch automatische Tests und einen Durchlauf mit zwei Controllern belegt. Offen bleibt nur T5 (Rollenrotation, später).
+
+## T1: Sichtbarer QR-Code auf der Host-Seite (erledigt)
 
 Ziel: Der Host zeigt den Beitritts-Code groß auf der Beamer-Seite, nicht nur im Terminal.
 
@@ -14,7 +16,9 @@ Vorgehen: Einen Endpunkt `/qr` ergänzen, der die Controller-URL über `qrcode` 
 
 Fertig, wenn: Ein Smartphone den Code scannt und der Controller im selben WLAN lädt.
 
-## T2: Leitstand an den Server verdrahten
+Erledigt: Der Endpunkt `/qr` liefert den QR-Code als SVG aus der LAN-URL (zusätzlich im Header `X-Join-URL`). Der Host zeigt ihn im Join-Panel samt URL.
+
+## T2: Leitstand an den Server verdrahten (erledigt)
 
 Ziel: Ereignis und Grundschwierigkeit wirken serverseitig statt nur lokal.
 
@@ -24,7 +28,9 @@ Vorgehen: Neue Nachrichten für Ereignis und Schwierigkeit aufnehmen. Der Knopf 
 
 Fertig, wenn: Ein Knopfdruck eine Welle auslöst, die Hülle sinkt und der Host die Erschütterung zeigt. Der Regler ändert die Stufe der nächsten Aufgaben.
 
-## T3: Statusverfall und Nachjustieren
+Erledigt: Neue, nur vom Host akzeptierte Nachrichten `triggerEvent` und `setDifficulty`. Die Welle senkt serverseitig die Hülle und wird als `event` an alle gemeldet; der Host spielt Alarm und Einschlag und schüttelt die Szene. Der Regler setzt die Grundstufe für neue Aufgaben.
+
+## T3: Statusverfall und Nachjustieren (erledigt)
 
 Ziel: Eine Station bleibt nur stabil, wenn sie gehalten wird. Leerlauf wird spürbar.
 
@@ -34,7 +40,9 @@ Vorgehen: Im Tick den Stationsstatus über Zeit von stabil auf achtung absinken 
 
 Fertig, wenn: Ohne Eingriff fällt eine Station zurück und der Fortschritt stockt. Nach erneutem Lösen steigt sie wieder.
 
-## T4: Sektorfluss und Spielende
+Erledigt: Jede Station trägt einen Stabilitätswert (1 nach dem Lösen), der im Tick fällt; nach rund acht Sekunden ohne neue Lösung wird sie wieder „achtung“. Der Huellenverlust ist an die Vernachlässigung gekoppelt (unbesetzt am stärksten, besetzt aber instabil weniger, stabil gar nicht). Fortschritt braucht die Mehrheit der Stationen stabil. Host und Controller zeigen die Stabilität.
+
+## T4: Sektorfluss und Spielende (erledigt)
 
 Ziel: Fortschritt führt durch die Sektoren bis zum Ziel. Eine leere Hülle bedeutet Scheitern.
 
@@ -43,6 +51,8 @@ Dateien: `server/game.js`, `client/host/host.js`, `shared/protocol.js`.
 Vorgehen: Bei Fortschritt 100 den Sektor erhöhen und den Fortschritt zurücksetzen. Nach dem letzten Sektor folgt der Sieg, bei Hülle 0 die Niederlage. Der Host zeigt das Ergebnis.
 
 Fertig, wenn: Ein Durchlauf sichtbar endet, als Sieg oder als Niederlage.
+
+Erledigt: Voller Fortschritt führt in den nächsten Sektor (drei insgesamt), nach dem letzten folgt der Sieg, leere Hülle die Niederlage. Die Phase liegt im Zustand; nach dem Ende ruht die Simulation. Der Host zeigt ein Ergebnisfenster mit dem Knopf „Neuer Anlauf“ (`resetGame`), der Server setzt zurück und vergibt frische Aufgaben.
 
 ## T5: Rollenrotation und Unterstützerrolle (später)
 
@@ -54,7 +64,7 @@ Vorgehen: Beim Sektorwechsel die Stationen neu zuteilen. Wer schnell löst, beko
 
 Fertig, wenn: Nach einem Sektor sitzt jede Person an einer anderen Station und schnelle Lösungen erzeugen keine Wartezeit.
 
-## T6: Zweites Mini-Spiel Tiefpassfilter (Station Sensorik)
+## T6: Zweites Mini-Spiel Tiefpassfilter (Station Sensorik) (erledigt)
 
 Ziel: Ein zweites, voll spielbares und zufälliges Mini-Spiel, das die Schnittstelle erfüllt. Es bringt fachliche Breite, da der Bordcomputer Themenfeld 3 abdeckt und der Filter Themenfeld 2.
 
@@ -73,6 +83,8 @@ Schnittstelle:
 Wichtig: generate und validate ohne DOM, nur mount nutzt das Document. Als Vorlage dient `client/minigames/_template.js`, als Vorbild `client/minigames/bordcomputer.js`.
 
 Fertig, wenn: Die Station Sensorik wählbar ist, jede Runde eine andere Zielfrequenz zeigt und die Validierung serverseitig stimmt.
+
+Erledigt: `client/minigames/tiefpassfilter.js` erfüllt die Schnittstelle DOM-frei in generate und validate. Diskrete R- und C-Reihen machen die Zielfrequenz exakt erreichbar; die Stufe steuert Toleranz und ob nur C oder R und C verstellbar sind. mount zeichnet den Amplitudengang auf Canvas mit Zielmarke und Toleranzband, der Start liegt bewusst daneben. Modul ist in der Registry, Station Sensorik im Protokoll.
 
 ## Designhinweise für alle Tickets
 
