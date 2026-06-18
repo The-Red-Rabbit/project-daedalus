@@ -25,34 +25,44 @@ Diese Datei ist die Arbeitsgrundlage für Claude Code. Sie beschreibt Architektu
 ```
 project-daedalus/
   CLAUDE.md                 diese Datei
-  README.md                 Kurzanleitung zum Start
+  README.md                 Kurzanleitung und Einsatz im Unterricht
+  REVIEW.md                 Bericht des ersten Review-Durchgangs
+  TASKS.md                  Backlog mit Abnahmekriterien (T1 bis T6 erledigt)
   package.json
   server/
-    index.js                HTTP + WebSocket, liefert den Client aus, verwaltet Räume
-    game.js                 Spielzustand, Sektor-Schleife, geteilte Werte, Kopplung
+    index.js                HTTP + WebSocket, statische Auslieferung, /qr, Rollenvergabe, Tick-Verteilung
+    game.js                 autoritativer Zustand: Teilnehmer und Rollen, Rotation, Kopplung, Sektoren, Spielende
   shared/
-    protocol.js             Nachrichtentypen und Konstanten (Server und Client teilen sie)
+    protocol.js             Nachrichtentypen, STATUS und STATIONS (Server und Client teilen sie)
     rng.js                  deterministischer Zufall aus Seed (mulberry32)
   client/
-    net.js                  WebSocket-Hilfe für beide Clients
-    audio.js                Audio-Engine und Cue-Katalog (Host und Controller)
+    net.js                  WebSocket-Hilfe mit automatischem Wiederverbinden (beide Clients)
+    audio.js                Audio-Engine, Cue-Katalog, geschichtete Kulisse und Alarmbett
     host/
-      index.html            Beamer-Ansicht
+      index.html            Beamer-Ansicht (Szene, HUD, Werte, Stationen, Leitstand, QR, Ergebnis)
       host.js               bindet Renderer, HUD, Leitstand und Audio zusammen
-      renderer.js           zeichnet Schiff, Asteroidenfeld und Stationen auf Canvas
+      renderer.js           reaktive Canvas-Szene (Schiff, Parallaxe-Asteroiden, Funken, Notlicht)
     controller/
       index.html            Smartphone-Ansicht
-      controller.js         Stationsrahmen, lädt das passende Mini-Spiel
+      controller.js         Lobby, Rollenanzeige (Operator/Co-Pilot), lädt das Mini-Spiel, HUD
     minigames/
       registry.js           Mini-Spiele anmelden und nachschlagen
       _template.js          Vorlage für ein neues Mini-Spiel
-      bordcomputer.js       Beispiel: logische Gatter (voll ausgearbeitet)
+      bordcomputer.js       logische Gatter (Themenfeld 3)
+      tiefpassfilter.js     RC-Tiefpass, Grenzfrequenz treffen (Themenfeld 2)
+      zahlensysteme.js      Dualsystem über Bit-Schalter (Themenfeld 3)
     styles/
       tokens.css            Designtokens der Grimdark-Palette
-      controller.css        Panel-Optik der Stationen
+      controller.css        Panel- und Instrumentenoptik der Stationen
   assets/
     sprites/                Slot für spätere Grafiken
-    audio/                  Slot für spätere Klänge
+    audio/                  Slot für spätere Klänge, manifest.json listet vorhandene Samples
+  test/
+    rng.test.js             Determinismus und Wertebereiche des Zufalls
+    bordcomputer.test.js    generate/validate des Bordcomputers
+    tiefpassfilter.test.js  generate/validate des Tiefpassfilters
+    zahlensysteme.test.js   generate/validate der Zahlensysteme
+    game.test.js            Spielkern: Rollen, Rotation, Kopplung, Verfall, Spielende
   docs/
     GAME_DESIGN.md          Spielmechanik im Detail
     VISUAL_DESIGN.md        Kunststil, verbindlich
@@ -105,14 +115,16 @@ export default {
 };
 ```
 
-`mount` bekommt ein Wurzelelement, die Aufgabe und einen Kontext `ctx` mit Hilfen wie `ctx.audio.play("ui.toggle")` und `ctx.submit(input)`. Es liefert ein Handle mit `unmount()` zurück. `validate` gibt `{ geloest, teiltreffer, hinweis }` zurück, wobei `teiltreffer` zwischen 0 und 1 die Live-Rückmeldung speist.
+`mount` bekommt ein Wurzelelement, die Aufgabe und einen Kontext `ctx` mit `ctx.audio.play("ui.toggle")`, `ctx.submit(input)`, `ctx.station` (Anzeigename) und `ctx.role` (`"operator"` oder `"supporter"`). Es liefert ein Handle mit `unmount()` und optional `onResult(res)` zurück. `validate` gibt `{ geloest, teiltreffer, hinweis }` zurück, wobei `teiltreffer` zwischen 0 und 1 die Live-Rückmeldung speist.
+
+Wichtig: `generate` und `validate` müssen DOM-frei bleiben, denn der Server ruft sie zur autoritativen Prüfung ebenfalls auf. Nur `mount` darf das Document benutzen. Registriert sind derzeit `bordcomputer`, `tiefpassfilter` und `zahlensysteme`.
 
 Ein neues Mini-Spiel hinzufügen:
 
 1. `client/minigames/_template.js` kopieren und umbenennen.
-2. `generate`, `mount` und `validate` ausfüllen.
+2. `generate`, `mount` und `validate` ausfüllen (generate/validate ohne DOM).
 3. Das Modul in `client/minigames/registry.js` anmelden.
-4. Die Station in der Spielkonfiguration des Servers ergänzen.
+4. Eine Station in `shared/protocol.js` (Liste `STATIONS`) ergänzen, die auf die `id` des Moduls als `minigame` zeigt.
 
 ## Visuelles Design
 
@@ -142,6 +154,8 @@ Cue-Katalog (Startumfang):
 - `ambient.hum`: flackerndes Neonröhren-Brummen
 - `progress.tick`: ratschendes Kettengeräusch
 
+Stand der Umsetzung: `play(cue)` synthetisiert die Einzelklänge `ui.toggle`, `ui.confirm`, `ui.error`, `station.stabilize`, `alarm.asteroid`, `impact.hull` und `progress.tick`. Die Schleifen `ambient.engine`/`ambient.hum` sind als geschichtete Kulisse in `startAmbient` realisiert, nicht als Einzel-Cues. Für jeden Cue kann unter `assets/audio/<cue>.mp3` ein Sample abgelegt und im Manifest eingetragen werden, dann gewinnt die Datei.
+
 ## Start und Entwicklung
 
 ```bash
@@ -160,6 +174,21 @@ Das Spiel ist klassenfertig (Stand 17.06.2026). Lauffähig sind: Server mit auto
 Der Spielablauf: Der Server setzt jede Person als Operator einer Station oder als Co-Pilot ein. Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor und rotiert die Rollen; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus, setzt die Grundschwierigkeit und startet einen neuen Anlauf.
 
 Erledigt sind alle Tickets T1 bis T6 (siehe `TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und Durchläufe mit mehreren Controllern für Sieg- und Niederlage-Pfad. Offen bleiben nur echte Assets in den Slots unter `assets/` (das Spiel läuft prozedural ohne sie).
+
+### Spielkern-Stellschrauben
+
+Die Abstimmwerte liegen gebündelt oben in `server/game.js`: `ASTEROID_DAMAGE`, `STABLE_DECAY_PER_SEC`, `HULL_DRAIN_CRITICAL`, `HULL_DRAIN_WARN`, `PROGRESS_PER_SEC`, `MAX_SECTORS`, `SUPPORTER_BOOST`, `FAST_SOLVE_SEC` und `SLOW_SOLVE_SEC`. Wer Tempo, Druck oder Spiellänge ändern will, justiert sie dort. Die Tickrate steht als `TICK_HZ` in `shared/protocol.js`.
+
+### Bekannte Lücken und mögliche nächste Schritte
+
+- Energie ist derzeit ein reiner Anzeigewert und bleibt konstant, weil es noch keinen Reaktor gibt. Ein Reaktor-Mini-Spiel könnte Energie verbrauchen und verteilen und sie an die Kopplung binden.
+- Weitere in `docs/GAME_DESIGN.md` genannte Stationen fehlen noch: Antrieb, Schilde, Reaktor. Sie entstehen als neue Mini-Spiele über die Schnittstelle plus Eintrag in `STATIONS`.
+- Echte Assets in den Slots unter `assets/`: Sprites für `renderer.js`, Samples je Cue (im Manifest eintragen).
+- Optional: mehrere Räume statt eines einzigen (der Server hält aktuell genau ein Spiel) und eine einfache Datenerfassung für die Reflexion.
+
+### Projektstand (Git)
+
+Die gesamte Arbeit liegt auf dem Branch `review/baseline-fixes` in kleinen, beschriebenen Commits. Sie ist noch nicht nach `main` gemerged und noch nicht zum Remote gepusht (in der Arbeitsumgebung war keine GitHub-Authentifizierung hinterlegt). Vor dem Weiterarbeiten den Branch sichten und nach Bedarf mergen oder pushen.
 
 ## Konventionen
 
