@@ -102,6 +102,21 @@ export default {
     return { geloest, teiltreffer, hinweis };
   },
 
+  // Liefert eine korrekte Eingabe zur Aufgabe (DOM-frei): die R/C-Kombination
+  // aus den erlaubten Reihen, deren Grenzfrequenz dem Ziel am naechsten kommt.
+  // Genutzt von den Debug-Bots und den Tests.
+  solve(task) {
+    const rs = task.adjust.r ? task.rOptions : [task.rFixed];
+    let best = null;
+    for (const r of rs) {
+      for (const c of task.cOptions) {
+        const err = Math.abs(cutoff(r, c) - task.targetFc);
+        if (!best || err < best.err) best = { r, c, err };
+      }
+    }
+    return { r: best.r, c: best.c };
+  },
+
   mount(root, task, ctx) {
     let r = task.startR;
     let c = task.startC;

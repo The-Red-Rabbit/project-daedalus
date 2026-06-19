@@ -6,6 +6,8 @@ Reihenfolge: T1 bis T4 und T6 bilden das MVP. T5 ist ein späterer Schritt. Jede
 
 Stand 17.06.2026: Alle Tickets sind umgesetzt. T1, T2, T3, T4, T5 und T6 sind erledigt und durch automatische Tests sowie Durchlaeufe mit mehreren Controllern (Sieg- und Niederlage-Pfad) belegt. Zusaetzlich gibt es ein drittes Mini-Spiel (Zahlensysteme, Station Navigation) und einen Qualitaetsschliff bei Bild und Ton.
 
+Stand 18.06.2026 (Runde 2): Phase 1, 2 und 3 sind erledigt (siehe unten „Runde 2“). Debug-Bots fuers Solo-Testen, eine ruhigere Taktung, die kooperative Reaktor-Station und der Umbau des Bordcomputers zum Schaltungsbau sind umgesetzt und durch Tests (63 gruen) sowie Komplettdurchlaeufe mit Bots belegt.
+
 ## T1: Sichtbarer QR-Code auf der Host-Seite (erledigt)
 
 Ziel: Der Host zeigt den Beitritts-Code groß auf der Beamer-Seite, nicht nur im Terminal.
@@ -87,6 +89,44 @@ Wichtig: generate und validate ohne DOM, nur mount nutzt das Document. Als Vorla
 Fertig, wenn: Die Station Sensorik wählbar ist, jede Runde eine andere Zielfrequenz zeigt und die Validierung serverseitig stimmt.
 
 Erledigt: `client/minigames/tiefpassfilter.js` erfüllt die Schnittstelle DOM-frei in generate und validate. Diskrete R- und C-Reihen machen die Zielfrequenz exakt erreichbar; die Stufe steuert Toleranz und ob nur C oder R und C verstellbar sind. mount zeichnet den Amplitudengang auf Canvas mit Zielmarke und Toleranzband, der Start liegt bewusst daneben. Modul ist in der Registry, Station Sensorik im Protokoll.
+
+## Runde 2
+
+Weiterentwicklung nach dem ersten klassenfertigen Stand, getrieben von `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`. Phasenweise, mit bewusstem Stopp nach jeder Phase.
+
+### Runde 2 · Phase 1: Debug-Bots und Entschärfung des Tempos (erledigt)
+
+Ziel: Ein Werkzeug zum Solo-Testen und eine ruhigere Taktung. Kein neuer Spielinhalt.
+
+Teil A, simulierte Spieler (Bots). Neu `server/bots.js`: Bots treten über dieselbe `addParticipant`-Logik bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben über den echten `solve`-Pfad (meist richtig, gelegentlich daneben). Steuerung nur vom Host über die neue, nur mit `DAEDALUS_DEBUG` aktive Nachricht `debugBots` (`spawn`/`clear`). Im Leitstand ein abgesetzter Debug-Bereich „Simulierte Spieler“, im Roster mit „🤖“ markiert. Damit das Lösungswissen nicht doppelt liegt, hat jedes Mini-Spiel eine optionale, DOM-freie Methode `solve(task)`; die Tests nutzen sie ebenfalls.
+
+Teil B, ruhigere Taktung (Profil „mittel“). Werte oben in `server/game.js`: `STABLE_DECAY_PER_SEC` von 0,12 auf 0,0625 (Station hält ~16 s statt ~8 s), `HULL_DRAIN_CRITICAL` von 1,5 auf 1,0, `HULL_DRAIN_WARN` von 0,6 auf 0,35. Neu `GRACE_SEC = 6`: eine Schonzeit nach Start und nach jedem Sektorwechsel, in der nichts verfällt und die Hülle hält (der Fortschritt darf laufen). Die Brücke zeigt sie als Anflug-Hinweis, der Host-`state` trägt das Restfeld `grace`.
+
+Fertig, wenn: Mit sechs Bots läuft ein voller Durchlauf allein an Brücke und Leitstand bis zum Sieg oder zur Niederlage, ein Sektor fühlt sich ruhiger an und kurze Vernachlässigung reißt die Hülle nicht sofort ein. Belegt durch `npm test` (48 Tests grün, inklusive `solve`- und Bot-Tests) und einen Komplettdurchlauf (sechs Bots, Sieg über drei Sektoren).
+
+### Runde 2 · Phase 2: Kooperative Reaktor-Station (erledigt)
+
+Ziel: Eine neue, kooperative Station, die zum Reden und zum Blick nach vorn auf die Brücke zwingt.
+
+Mechanik: Zwei Personen kalibrieren gemeinsam eine kapazitive Reaktanz `Xc = 1 / (2*pi*f*C)` auf einen Zielwert aus dem Seed. Der Operator stellt die Kapazität C (Parameter `a`), der Co-Pilot die Frequenz f (Parameter `b`). Niemand sieht den Wert der anderen Seite, beide sehen Ziel und Annäherung (Match). Gewertet wird über das Modell „beide bestätigen“ (Felix' Wahl): nur wenn beide bei einem Wert im Toleranzband bestätigen, rastet es ein, die Station wird stabil und ein neues Ziel erscheint. Solo-Fallback: eine Person bedient beide Regler und bestätigt allein. Bedienelement: großer Schieberegler (Felix' Wahl).
+
+Architektur: Anders als die Einzelspiele hält den geteilten Zustand (beide Reglerwerte, Ziel, Bestätigungen) der Server in `server/game.js` je Koop-Station und rechnet die Reaktanz über `validate` autoritativ nach. Neues Modul `client/minigames/reaktor.js` (generate/validate/solve/solveFor DOM-frei), Eintrag in der Registry und in `STATIONS` mit `coop: true`. Neue Protokoll-Nachrichten `coopInput` und `coopConfirm`; `state` trägt für die Koop-Station `coopView` (Host) bzw. `coop` (Controller). Energie ist an den Reaktor gekoppelt (`ENERGIE_GAIN_PER_SEC`/`ENERGIE_DRAIN_PER_SEC` oben in `server/game.js`). Die Bots aus Phase 1 bedienen auch den Reaktor (schrittweise auf die Ziellinie, dann bestätigen). Brücke zeigt Ziel und Match groß; Controller hat den Schieber, eine Match-Leiste und einen Peilton `reaktor.tune`, der näher am Ziel dichter wird.
+
+Fertig, wenn: Zwei Personen (oder zwei Bots) kalibrieren den Reaktor, das Ziel steht auf der Brücke, der Match steigt sichtbar, bei Treffer wird die Station stabil und die Energie reagiert; die drei bestehenden Stationen laufen unverändert. Belegt durch `npm test` (60 Tests grün, inkl. Reaktor-Modul, Koop-Spielkern, Bot-Kalibrierung) und einen Live-Durchlauf mit acht Bots (Reaktor-Paar kalibriert wiederholt über mehrere Sektoren, Energie gekoppelt).
+
+### Runde 2 · Phase 3: Bordcomputer als Schaltungsbau (erledigt)
+
+Ziel: Das bloße Durchklicken verschwindet. Statt ein Gatter aus vier zu wählen, baut man die Lösung aus mehreren Gattern.
+
+Mechanik (Felix' Wahl: kleine Schaltung aus bis zu drei Gattern): Aus einer Ziel-Wahrheitstabelle baut man die Schaltung selbst, indem man je Slot ein Gatter wählt. Stufe 1 ist eine Reihe aus zwei Gattern (`out = Gout(G1(A,B), B)`), Stufe 2/3 die kleine Schaltung aus drei Gattern (`out = Gout(G1(A,B), G2(A,B))`); die Gatter-Auswahl wächst mit der Stufe (Stufe 1: UND/ODER/NAND, Stufe 2: + XOR, Stufe 3: + NOR/XNOR). Rückmeldung gibt es erst nach dem Bestätigen (keine Ist-Spalte mehr beim Bauen). Ein Fehlversuch kostet Stabilität (Felix' Wahl statt einer Sperre): `WRONG_SOLVE_PENALTY` oben in `server/game.js` senkt sie über den allgemeinen solve-Pfad (wirkt damit auch auf die anderen Einzelspiele und die Bots; Koop läuft über coopConfirm und bleibt unberührt).
+
+Architektur: `generate`/`validate`/`solve` bleiben DOM-frei; die Aufgabe beschreibt die Verdrahtung generisch (`slots` mit Eingangs-Referenzen, `palette`, `target`, `solution`), sodass derselbe Code auf Server und Client die Schaltung auswertet. Der Server validiert autoritativ. `test/bordcomputer.test.js` ist auf die neue Mechanik umgestellt und prüft `validate` gegen eine unabhängige Schaltungsauswertung über alle möglichen Belegungen.
+
+Fertig, wenn: Eine korrekte Lösung verlangt das Nachdenken über die Tabelle, blindes Probieren ist langsam und teuer, die Tests sind grün und der Spielablauf läuft ohne Regression. Belegt durch `npm test` (63 Tests grün) und einen Live-Durchlauf mit sechs Bots (Bordcomputer wird gebaut und stabil, Sieg über drei Sektoren, Fehlversuche senken sichtbar die Stabilität).
+
+### Runde 2 · Phase 4 und folgende
+
+Noch offen, bewusst erst nach Sichtung von Phase 3 und nur bei genügend Zeit vor dem Test: Vertiefung von Tiefpass und Zahlensysteme (Phase 4), Backlog (Phase 5). Details in `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`.
 
 ## Designhinweise für alle Tickets
 

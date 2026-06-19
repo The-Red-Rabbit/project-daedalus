@@ -3,9 +3,11 @@
 import bordcomputer from "./bordcomputer.js";
 import tiefpassfilter from "./tiefpassfilter.js";
 import zahlensysteme from "./zahlensysteme.js";
+import reaktor from "./reaktor.js";
 
 export const registry = {
   [bordcomputer.id]: bordcomputer,
   [tiefpassfilter.id]: tiefpassfilter,
   [zahlensysteme.id]: zahlensysteme,
+  [reaktor.id]: reaktor,
 };

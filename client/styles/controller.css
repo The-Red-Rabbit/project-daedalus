@@ -66,6 +66,21 @@ body {
 }
 .bc-gate.sel { border-color: var(--accent-cyan); color: var(--accent-cyan); background: var(--bg-panel-2); }
 
+/* Schaltungsbau: ein Panel je Slot (Gatter) mit fester Verdrahtung. */
+.bc-circuit { display: grid; gap: 10px; margin-bottom: 16px; }
+.bc-slot {
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-cyan);
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+}
+.bc-slot-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+.bc-slot-head b { font-family: var(--font-mono); letter-spacing: 0.04em; }
+.bc-wire { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.bc-slot-gates { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-slot-gates .bc-gate { flex: 1 1 auto; min-width: 60px; padding: 10px 0; }
+
 .bc-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); margin-bottom: 12px; }
 .bc-table th { font-size: 12px; color: var(--text-muted); font-weight: 400; padding: 6px 0; }
 .bc-table td { text-align: center; padding: 10px 0; border-top: 1px solid var(--edge); }
@@ -140,6 +155,61 @@ body {
 .zs-readout b { font-family: var(--font-mono); color: var(--text-primary); font-size: 16px; }
 .zs-bin { font-family: var(--font-mono); letter-spacing: 0.12em; }
 
+/* Reaktor (kooperative Station): grosser Regler, Match-Leiste, Bestaetigung */
+.rk-target { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
+.rk-target b { font-family: var(--font-mono); color: var(--accent-yellow); font-size: 20px; }
+.rk-match {
+  position: relative;
+  height: 22px;
+  background: var(--bg-void);
+  border: 1px solid var(--edge);
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+.rk-match-fill { height: 100%; width: 0; background: var(--accent-cyan); transition: width 0.15s linear, background 0.2s; }
+/* Zielband als heller Streifen am rechten (nahen) Ende. */
+.rk-band {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  background: repeating-linear-gradient(45deg, transparent, transparent 5px, color-mix(in srgb, var(--status-stable) 30%, transparent) 5px, color-mix(in srgb, var(--status-stable) 30%, transparent) 10px);
+  border-left: 1px dashed var(--status-stable);
+  pointer-events: none;
+}
+.rk-readout { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 16px; }
+.rk-state { color: var(--text-muted); }
+.rk-partner { font-family: var(--font-mono); color: var(--text-muted); }
+.rk-controls { display: grid; gap: 16px; margin-bottom: 16px; }
+.rk-row { display: flex; align-items: center; gap: 12px; }
+.rk-row-label { width: 20px; font-family: var(--font-mono); font-size: 16px; color: var(--accent-cyan); }
+.rk-row input[type="range"] { flex: 1; }
+.rk-row-val { width: 88px; text-align: right; font-family: var(--font-mono); color: var(--text-primary); }
+.rk-confirm.armed { color: var(--bg-void); background: var(--status-stable); }
+.rk-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 12px;
+  background: var(--bg-void);
+  border: 1px solid var(--edge);
+}
+.rk-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 36px;
+  background: var(--steel);
+  border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -3px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.rk-row input[type="range"]::-moz-range-thumb {
+  width: 28px;
+  height: 36px;
+  background: var(--steel);
+  border: 1px solid var(--edge);
+  cursor: pointer;
+}
+
 /* Status-HUD am unteren Rand: Schiffshuelle und eigene Stationsstabilitaet */
 .hud {
   position: fixed;
@@ -177,6 +247,36 @@ body.has-topbar { padding-top: 52px; }
   margin-bottom: 12px;
 }
 .lobby-name:focus { outline: none; border-color: var(--accent-cyan); }
+
+/* Wartebildschirm vor dem Start */
+.waiting { padding-top: 40px; text-align: center; }
+.waiting .role-line { font-size: 16px; line-height: 1.5; margin: 6px 0 14px; }
+.waiting .role-line b { color: var(--accent-cyan); }
+.wait-dots { display: flex; gap: 8px; justify-content: center; margin-top: 22px; }
+.wait-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  opacity: 0.3;
+  animation: wait-pulse 1.2s infinite ease-in-out;
+}
+.wait-dots span:nth-child(2) { animation-delay: 0.2s; }
+.wait-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wait-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+/* Ergebnisbildschirm (Sieg/Niederlage) */
+.end { padding-top: 56px; text-align: center; }
+.end-title {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  color: var(--accent-cyan);
+}
+.end.lost .end-title { color: var(--accent-red); }
+.end .small { font-size: 13px; margin-top: 16px; }
 
 /* Rollenleiste oben */
 .topbar {

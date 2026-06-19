@@ -1,8 +1,9 @@
-// Controller: Lobby, Beitritt, Rollenanzeige (Operator oder Co-Pilot),
-// laedt das zugewiesene Mini-Spiel und sendet Eingaben. Der Server verteilt
-// die Rollen und rotiert sie zwischen den Sektoren.
+// Controller: Beitritt, Rollenanzeige (Operator oder Co-Pilot) und das
+// zugewiesene Mini-Spiel. Vor dem Start wartet die Station in der Lobby, nach
+// Sieg/Niederlage zeigt sie das Ergebnis. Der Server verteilt die Rollen,
+// startet das Spiel auf Befehl der Lehrkraft und rotiert die Rollen je Sektor.
 import { connect } from "/net.js";
-import { C2S, S2C, STATUS } from "/shared/protocol.js";
+import { C2S, S2C, STATUS, PHASES } from "/shared/protocol.js";
 import { registry } from "/minigames/registry.js";
 import { mulberry32 } from "/shared/rng.js";
 import { createAudio } from "/audio.js";
@@ -10,10 +11,16 @@ import { createAudio } from "/audio.js";
 const app = document.getElementById("app");
 const audio = createAudio();
 
-let current = null; // Handle des laufenden Mini-Spiels
-let joinedLabel = null; // gesetzt nach dem ersten Beitritt (fuer Wiederverbinden)
-let role = null; // "operator" | "supporter"
+let current = null;       // Handle des laufenden Mini-Spiels
+let joinedLabel = null;   // gesetzt nach dem ersten Beitritt (fuer Wiederverbinden)
+let joined = false;       // hat diese Person bereits beigetreten
+let role = null;          // "operator" | "supporter"
 let stationName = "";
+let gamePhase = null;     // letzte bekannte Phase aus STATE
+let pendingTask = null;   // letzte zugewiesene Aufgabe (wird beim Start gemountet)
+let screen = "join";      // "join" | "waiting" | "game" | "end"
+let endPhase = null;      // welche Endphase zuletzt gezeigt wurde
+let lastState = null;     // letzter STATE (fuer Live-Updates der Koop-Station)
 
 const net = connect({
   open: () => {
@@ -24,15 +31,16 @@ const net = connect({
   close: () => setDisconnected(true),
   message: (msg) => {
     if (msg.type === S2C.ASSIGNMENT) applyAssignment(msg);
-    if (msg.type === S2C.TASK_ASSIGNED) startTask(msg);
+    if (msg.type === S2C.TASK_ASSIGNED) applyTask(msg);
     if (msg.type === S2C.RESULT) handleResult(msg);
-    if (msg.type === S2C.STATE) updateHud(msg);
+    if (msg.type === S2C.STATE) updateState(msg);
+    if (msg.type === S2C.EVENT && msg.kind === "start") toast("Einsatz gestartet");
     if (msg.type === S2C.EVENT && msg.kind === "rotate") toast("Rollenwechsel: neuer Sektor");
   },
 });
 
-// Erst zeigen, wenn die Verbindung steht. Bis dahin Lobby.
-showLobby();
+// Erst der Beitritt mit Namen, dann steuert die Phase den Bildschirm.
+showJoin();
 
 function clear() {
   if (current && current.unmount) current.unmount();
@@ -40,14 +48,17 @@ function clear() {
   app.innerHTML = "";
 }
 
-function showLobby() {
+// --- Beitritt -------------------------------------------------------------
+
+function showJoin() {
   clear();
+  screen = "join";
   setTopbar(false);
   const wrap = document.createElement("div");
   wrap.className = "screen lobby";
   wrap.innerHTML =
     `<h1 class="title">Daedalus</h1>` +
-    `<p class="muted">Tritt der Crew bei. Der Leitstand weist dir eine Station zu.</p>` +
+    `<p class="muted">Tritt der Crew bei. Der Leitstand weist dir eine Station zu und startet den Einsatz.</p>` +
     `<input id="lobby-name" class="lobby-name" placeholder="Dein Name" maxlength="24" autocomplete="off">` +
     `<button id="lobby-join" class="bc-confirm">Beitreten</button>`;
   app.appendChild(wrap);
@@ -56,6 +67,8 @@ function showLobby() {
   const go = async () => {
     const label = input.value.trim() || "Crew";
     joinedLabel = label;
+    joined = true;
+    screen = "joining";
     await audio.unlock(); // Tippen ist die Geste, die den Ton freigibt
     audio.play("ui.toggle");
     net.send(C2S.JOIN, { role: "controller", label });
@@ -71,19 +84,67 @@ function applyAssignment(msg) {
   role = msg.role;
   stationName = msg.stationName || "";
   setTopbar(true);
-  // Die eigentliche Stations-UI baut sich beim folgenden taskAssigned auf.
+  // Im Wartezustand die Rollenanzeige aktualisieren; die Stations-UI selbst baut
+  // sich erst beim Start (Phase "running") aus der zugewiesenen Aufgabe auf.
+  if (screen === "waiting") showWaiting();
 }
 
-function startTask(msg) {
+function applyTask(msg) {
+  pendingTask = msg;
+  if (gamePhase === PHASES.RUNNING) mountGame();
+}
+
+// --- Phasensteuerung ------------------------------------------------------
+
+function updateState(state) {
+  gamePhase = state.phase;
+  lastState = state;
+  updateHud(state);
+  // Live-Werte (z. B. Match der Koop-Station) an das laufende Mini-Spiel reichen.
+  if (screen === "game" && current && current.onState) current.onState(state);
+  if (!joined) return;
+  if (gamePhase === PHASES.RUNNING) {
+    if (screen !== "game") mountGame();
+  } else if (gamePhase === PHASES.WON || gamePhase === PHASES.LOST) {
+    if (screen !== "end" || endPhase !== gamePhase) showEnd(gamePhase);
+  } else {
+    if (screen !== "waiting") showWaiting();
+  }
+}
+
+function showWaiting() {
   clear();
+  screen = "waiting";
   setTopbar(true);
-  const mod = registry[msg.minigame];
-  if (!mod) {
-    app.innerHTML = `<p class="muted">Unbekanntes Mini-Spiel: ${msg.minigame}</p>`;
+  const rolle = role === "supporter" ? "Co-Pilot" : "Operator";
+  const line = stationName
+    ? `Du bist <b>${rolle}</b> der Station <b>${stationName}</b>.`
+    : `Der Leitstand weist dir gleich eine Station zu.`;
+  const wrap = document.createElement("div");
+  wrap.className = "screen waiting";
+  wrap.innerHTML =
+    `<h1 class="title">Bereit</h1>` +
+    `<p class="role-line">${line}</p>` +
+    `<p class="muted">Warte auf den Start durch die Lehrkraft …</p>` +
+    `<div class="wait-dots"><span></span><span></span><span></span></div>`;
+  app.appendChild(wrap);
+}
+
+function mountGame() {
+  if (!pendingTask) {
+    if (screen !== "waiting") showWaiting();
     return;
   }
-  const rng = mulberry32(msg.seed);
-  const task = mod.generate(msg.level, rng);
+  clear();
+  screen = "game";
+  setTopbar(true);
+  const mod = registry[pendingTask.minigame];
+  if (!mod) {
+    app.innerHTML = `<p class="muted">Unbekanntes Mini-Spiel: ${pendingTask.minigame}</p>`;
+    return;
+  }
+  const rng = mulberry32(pendingTask.seed);
+  const task = mod.generate(pendingTask.level, rng);
   const root = document.createElement("div");
   root.className = "screen";
   app.appendChild(root);
@@ -92,8 +153,28 @@ function startTask(msg) {
     station: stationName,
     role,
     submit: (input) => net.send(C2S.SOLVE_ATTEMPT, { input }),
+    // Koop-Station: stufenlose Eingabe und gemeinsame Bestaetigung.
+    coopInput: (param, value) => net.send(C2S.COOP_INPUT, { param, value }),
+    coopConfirm: () => net.send(C2S.COOP_CONFIRM),
   };
   current = mod.mount(root, task, ctx) || null;
+  // Direkt mit dem letzten bekannten Zustand versorgen (Koop: Ziel/Match/Solo).
+  if (current && current.onState && lastState) current.onState(lastState);
+}
+
+function showEnd(phase) {
+  clear();
+  screen = "end";
+  endPhase = phase;
+  setTopbar(true);
+  const won = phase === PHASES.WON;
+  const wrap = document.createElement("div");
+  wrap.className = `screen end ${won ? "won" : "lost"}`;
+  wrap.innerHTML =
+    `<div class="end-title">${won ? "Sieg" : "Niederlage"}</div>` +
+    `<p class="muted">${won ? "Die Daedalus hat das Asteroidenfeld durchquert." : "Die Hülle ist zusammengebrochen."}</p>` +
+    `<p class="muted small">Die Lehrkraft startet am Leitstand einen neuen Anlauf.</p>`;
+  app.appendChild(wrap);
 }
 
 function handleResult(res) {
@@ -159,8 +240,9 @@ function updateHud(state) {
   hull.style.background = hullColor(state.shared.huelle);
   document.getElementById("hud-hull-val").textContent = `${Math.round(state.shared.huelle)}%`;
 
+  // Stationszeile nur im laufenden Spiel zeigen (in der Lobby noch nicht aktiv).
   const row = document.getElementById("hud-station-row");
-  if (state.status) {
+  if (state.status && state.phase === PHASES.RUNNING) {
     row.style.display = "";
     const color = statusColor[state.status] || "var(--text-muted)";
     document.getElementById("hud-station").textContent = `${statusShape[state.status] || ""} ${state.status}`;

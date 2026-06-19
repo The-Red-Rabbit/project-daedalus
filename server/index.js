@@ -8,8 +8,9 @@ import { fileURLToPath } from "node:url";
 import { networkInterfaces } from "node:os";
 import { WebSocketServer } from "ws";
 import QRCode from "qrcode";
-import { C2S, S2C, TICK_HZ, STATIONS, encode, decode } from "../shared/protocol.js";
+import { C2S, S2C, TICK_HZ, STATIONS, PHASES, encode, decode } from "../shared/protocol.js";
 import { createGame } from "./game.js";
+import { createBots } from "./bots.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -33,7 +34,11 @@ const MIME = {
 // alles andere unter client/.
 async function serveStatic(req, res) {
   let urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+  // Einstieg und drei Ansichten: Starter (Auswahl), Beamer (Bruecke), Leitstand
+  // (Lehrkraft) und Controller (Smartphone).
   if (urlPath === "/" || urlPath === "/host") urlPath = "/host/index.html";
+  if (urlPath === "/beamer") urlPath = "/beamer/index.html";
+  if (urlPath === "/dashboard") urlPath = "/dashboard/index.html";
   if (urlPath === "/controller") urlPath = "/controller/index.html";
 
   // Zielverzeichnis: /shared und /assets liegen im Stamm, alles andere unter client/.
@@ -98,6 +103,10 @@ const wss = new WebSocketServer({ server });
 
 // Ein einzelner Raum genuegt fuer das MVP. Spaeter optional mehrere Raeume.
 const game = createGame({ stations: STATIONS, baseLevel: 1 });
+// Debug-Werkzeug fuer das Solo-Testen: nur aktiv, wenn DAEDALUS_DEBUG gesetzt ist,
+// damit es nie versehentlich im Unterricht auftaucht.
+const DEBUG = !!process.env.DAEDALUS_DEBUG;
+const bots = DEBUG ? createBots(game) : null;
 const hosts = new Set();
 const controllers = new Map(); // ws -> participantId
 let nextId = 1;
@@ -133,7 +142,8 @@ wss.on("connection", (ws) => {
     if (msg.type === C2S.JOIN) {
       if (msg.role === "host") {
         hosts.add(ws);
-        send(ws, S2C.JOINED, { role: "host" });
+        // debug schaltet im Leitstand den Bot-Bereich frei (siehe DAEDALUS_DEBUG).
+        send(ws, S2C.JOINED, { role: "host", debug: DEBUG });
         send(ws, S2C.STATE, game.hostState());
       } else {
         // Server setzt die Person selbst (Operator oder Co-Pilot) und vergibt
@@ -167,7 +177,43 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    // Koop-Station (Reaktor): stufenlose Reglereingabe. Der Server prueft die
+    // Berechtigung; die Wirkung wird ueber den naechsten state sichtbar.
+    if (msg.type === C2S.COOP_INPUT) {
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      game.setCoopInput(pid, msg.param, msg.value);
+      return;
+    }
+
+    // Koop-Station: Bestaetigung. Haben beide Seiten bestaetigt, wertet der Server
+    // aus und meldet beiden das Ergebnis. Das neue Ziel kommt ueber den state.
+    if (msg.type === C2S.COOP_CONFIRM) {
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      const out = game.coopConfirm(pid);
+      if (out && out.evaluated) {
+        for (const id of out.participants) {
+          const w = wsOf(id);
+          if (w) send(w, S2C.RESULT, { geloest: out.geloest, teiltreffer: out.geloest ? 1 : 0, hinweis: out.geloest ? "Reaktor kalibriert." : "Daneben – neu absprechen." });
+        }
+      }
+      return;
+    }
+
     // Leitstand: nur vom Host akzeptieren.
+    if (msg.type === C2S.START_GAME) {
+      if (!hosts.has(ws)) return;
+      const phase = game.startGame();
+      if (phase === "running") {
+        // Frische Aufgaben fuer alle, damit das Tempo ab dem Start fair zaehlt.
+        for (const [client, pid] of controllers) seat(client, pid);
+        if (bots) bots.reseat();
+        broadcast(S2C.EVENT, { kind: "start", sector: game.hostState().sector });
+      }
+      return;
+    }
+
     if (msg.type === C2S.TRIGGER_EVENT) {
       if (!hosts.has(ws)) return;
       const event = game.triggerEvent(msg.kind);
@@ -184,8 +230,19 @@ wss.on("connection", (ws) => {
     if (msg.type === C2S.RESET_GAME) {
       if (!hosts.has(ws)) return;
       game.reset();
-      // Crew bleibt sitzen, bekommt aber Rolle und Aufgabe neu bestaetigt.
-      for (const [client, pid] of controllers) seat(client, pid);
+      // Zurueck in die Lobby: die Crew bleibt sitzen und wartet auf den naechsten
+      // Start (die Controller schalten ueber den Phasenwechsel selbst auf Warten).
+      // Frische Aufgaben verteilt erst der naechste START_GAME.
+      return;
+    }
+
+    // Debug-Werkzeug: simulierte Spieler erzeugen oder entfernen. Nur vom Host
+    // und nur, wenn der Server mit DAEDALUS_DEBUG gestartet wurde.
+    if (msg.type === C2S.DEBUG_BOTS) {
+      if (!hosts.has(ws) || !bots) return;
+      if (msg.action === "spawn") bots.spawn(Math.min(20, Math.max(1, Math.floor(Number(msg.count) || 1))));
+      else if (msg.action === "clear") bots.clear();
+      return;
     }
   });
 
@@ -208,6 +265,10 @@ wss.on("connection", (ws) => {
 const dt = 1 / TICK_HZ;
 setInterval(() => {
   const { rotated } = game.tick(dt);
+  // Sektorwechsel: auch die Bots bekommen wie die Controller neue Aufgaben.
+  if (rotated && bots) bots.reseat();
+  // Bots loesen nach dem Tick und vor dem Versand, damit ihr Stand sofort sichtbar ist.
+  if (bots) bots.tick(dt, game.hostState().phase === PHASES.RUNNING);
   const hostState = game.hostState();
   for (const ws of hosts) send(ws, S2C.STATE, hostState);
   for (const [ws, pid] of controllers) send(ws, S2C.STATE, game.participantState(pid));

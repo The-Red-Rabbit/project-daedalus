@@ -3,106 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Daedalus Brücke</title>
+<title>Daedalus · Start</title>
 <link rel="stylesheet" href="/styles/tokens.css">
 <style>
-  html, body { margin: 0; height: 100%; background: var(--bg-void); color: var(--text-primary); font-family: var(--font-ui); overflow: hidden; }
-  #stage { position: relative; width: 100vw; height: 100vh; }
-  #scene { display: block; width: 100%; height: 100%; }
-  #overlay { position: absolute; inset: 0; pointer-events: none; padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
-  .panel { background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 4px; padding: 12px 14px; pointer-events: auto; }
-  .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
-  .values { display: flex; gap: 20px; }
-  .value { min-width: 150px; }
-  .vhead { display: flex; justify-content: space-between; align-items: baseline; }
-  .value .label { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
-  .value b { font-family: var(--font-mono); font-size: 17px; color: var(--text-primary); }
-  .bar { height: 10px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
-  .bar > div { height: 100%; width: 0; transition: width 0.2s linear; }
-  .stations { display: flex; gap: 10px; flex-wrap: wrap; max-width: 60%; }
-  .station { min-width: 132px; }
-  .station .name { font-weight: 600; font-size: 15px; }
-  .station .status { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
-  .station .who { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
-  .station .stability { height: 5px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
-  .station .stability > div { height: 100%; width: 0; transition: width 0.2s linear; }
-  #banner { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-yellow); color: var(--text-primary); font-size: 18px; letter-spacing: 0.04em; padding: 10px 20px; border-radius: 3px; opacity: 0; transition: opacity 0.25s; }
-  #banner.show { opacity: 1; }
-  .bottombar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
-  .join { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
-  .join .join-text { text-align: left; }
-  .join .join-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
-  .join .join-url { color: var(--accent-cyan); font-family: var(--font-mono); margin-top: 2px; }
-  .qr { background: #fff; padding: 6px; border-radius: 3px; line-height: 0; }
-  .qr svg { display: block; width: 120px; height: 120px; }
-  #result { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.74); z-index: 10; }
-  #result[hidden] { display: none; }
-  .result-card { background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 4px; padding: 34px 46px; text-align: center; }
-  .result-card.lost { border-top-color: var(--accent-red); }
-  .result-title { font-size: 44px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); }
-  .result-card.lost .result-title { color: var(--accent-red); }
-  .result-text { color: var(--text-muted); margin: 12px 0 22px; }
-  #btn-restart { font-size: 15px; padding: 10px 20px; }
-  .leitstand { display: flex; gap: 10px; align-items: center; }
-  button { font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 7px 12px; cursor: pointer; }
-  button:hover { border-color: var(--accent-orange); }
-  select { font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 6px 8px; cursor: pointer; }
-  select:hover { border-color: var(--accent-orange); }
-  .leitstand label { display: flex; align-items: center; gap: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  html, body { margin: 0; min-height: 100%; background: var(--bg-void); color: var(--text-primary); font-family: var(--font-ui); }
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+  .kicker { font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); }
+  h1 { font-size: 44px; font-weight: 600; letter-spacing: 0.06em; margin: 6px 0 6px; }
+  .lead { color: var(--text-muted); max-width: 620px; text-align: center; line-height: 1.5; margin-bottom: 28px; }
+  .cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+  a.card { text-decoration: none; color: var(--text-primary); width: 300px; background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 6px; padding: 24px; transition: border-color 0.15s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -3px 8px rgba(0,0,0,0.4); }
+  a.card.beamer { border-top: 4px solid var(--accent-cyan); }
+  a.card.dashboard { border-top: 4px solid var(--accent-orange); }
+  a.card:hover { border-color: var(--accent-orange); }
+  a.card.beamer:hover { border-color: var(--accent-cyan); }
+  .card .role { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+  .card .name { font-size: 24px; font-weight: 600; margin: 4px 0 10px; }
+  .card .desc { font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+  .note { margin-top: 26px; font-size: 13px; color: var(--text-muted); }
 </style>
 </head>
 <body>
-  <div id="stage">
-    <canvas id="scene"></canvas>
-    <div id="result" hidden>
-      <div class="result-card" id="result-card">
-        <div class="result-title" id="result-title">Sieg</div>
-        <div class="result-text" id="result-text"></div>
-        <button id="btn-restart">Neuer Anlauf</button>
-      </div>
-    </div>
-    <div id="banner"></div>
-    <div id="overlay">
-      <div class="topbar">
-        <div class="panel">
-          <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted);">Daedalus</div>
-          <div id="sector" style="font-size:22px; font-weight:600;">Sektor 1</div>
-          <div id="crew" style="font-size:13px; color:var(--text-muted); margin-top:2px;">Crew 0</div>
-        </div>
-        <div class="panel values">
-          <div class="value"><div class="vhead"><span class="label">Hülle</span><b id="n-huelle">100%</b></div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>
-          <div class="value"><div class="vhead"><span class="label">Energie</span><b id="n-energie">100%</b></div><div class="bar"><div id="v-energie" style="background:var(--accent-yellow);"></div></div></div>
-          <div class="value"><div class="vhead"><span class="label">Fortschritt</span><b id="n-fortschritt">0%</b></div><div class="bar"><div id="v-fortschritt" style="background:var(--accent-cyan);"></div></div></div>
-        </div>
-      </div>
-
-      <div class="bottombar">
-        <div class="panel stations" id="stations"></div>
-        <div style="display:flex; flex-direction:column; gap:10px; align-items:flex-end;">
-          <div class="panel leitstand">
-            <span style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted);">Leitstand</span>
-            <button id="btn-event">Asteroidenwelle</button>
-            <label>Stufe
-              <select id="sel-difficulty">
-                <option value="1">1 leicht</option>
-                <option value="2">2 mittel</option>
-                <option value="3">3 schwer</option>
-              </select>
-            </label>
-            <button id="btn-reset">Runde neu</button>
-            <button id="btn-audio">Ton an</button>
-          </div>
-          <div class="panel join">
-            <div id="qr" class="qr"></div>
-            <div class="join-text">
-              <div class="join-label">Beitritt im WLAN</div>
-              <div class="join-url" id="join-url">…</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="kicker">Medientechnik · Ergebnissicherung</div>
+  <h1>Daedalus</h1>
+  <p class="lead">Zwei Ansichten teilen sich den Host: die Brücke kommt auf den Beamer, der Leitstand bleibt bei der Lehrkraft. Öffne beide (am besten in getrennten Fenstern).</p>
+  <div class="cards">
+    <a class="card beamer" href="/beamer" target="_blank" rel="noopener">
+      <div class="role">Für den Beamer</div>
+      <div class="name">Brücken-Ansicht</div>
+      <div class="desc">Blick durchs Cockpitfenster ins Asteroidenfeld, Schiffswerte und der Beitritts-QR für die Klasse. Auf den Projektor legen (Vollbild).</div>
+    </a>
+    <a class="card dashboard" href="/dashboard" target="_blank" rel="noopener">
+      <div class="role">Für die Lehrkraft</div>
+      <div class="name">Leitstand</div>
+      <div class="desc">Spiel starten, Schwierigkeit setzen, Asteroidenwellen auslösen und Stationen wie Crew live verfolgen. Auf dem Laptop behalten.</div>
+    </a>
   </div>
-  <script type="module" src="/host/host.js"></script>
+  <p class="note">Tipp: zuerst die Brücke auf den Beamer ziehen und einmal „Ton an“ tippen, dann am Leitstand das Spiel starten.</p>
 </body>
 </html>

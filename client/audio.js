@@ -118,6 +118,9 @@ export function createAudio() {
       noiseBurst(0.3, { lowpass: 500, gain: 0.45 });
     },
     "progress.tick": () => noiseBurst(0.04, { lowpass: 3000, gain: 0.15 }),
+    // Peilton der Reaktor-Kalibrierung: kurzer heller Blip. Der Controller
+    // spielt ihn dichter, je naeher der kombinierte Wert am Ziel liegt.
+    "reaktor.tune": () => tone(660, 0.06, { type: "triangle", gain: 0.16 }),
   };
 
   async function play(cue, gain = 1) {
@@ -125,6 +128,38 @@ export function createAudio() {
     const buf = await tryLoadSample(cue);
     if (buf) return playSample(buf, gain);
     if (synth[cue]) synth[cue]();
+  }
+
+  // Laedt eine einzelne Audiodatei (voller Pfad) und cacht sie. Anders als der
+  // Cue-Katalog braucht das kein Manifest und keine feste Endung; gedacht fuer
+  // einmalige Stuecke wie die Begruessung der Bord-KI (auch .wav).
+  async function loadFile(url) {
+    if (buffers.has(url)) return buffers.get(url);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("kein Sample");
+      const arr = await res.arrayBuffer();
+      const buf = await ensure().decodeAudioData(arr);
+      buffers.set(url, buf);
+      return buf;
+    } catch {
+      buffers.set(url, null);
+      return null;
+    }
+  }
+
+  // Im Voraus laden (z. B. beim Freischalten des Tons), damit das Stueck spaeter
+  // ohne Verzoegerung startet.
+  function preloadFile(url) {
+    ensure();
+    loadFile(url);
+  }
+
+  // Spielt eine einzelne Datei einmal ab (kein Loop).
+  async function playFile(url, gain = 1) {
+    ensure();
+    const buf = await loadFile(url);
+    if (buf) playSample(buf, gain);
   }
 
   // Endlosschleife aus weissem Rauschen als Quelle fuer Rumpeln und Flackern.
@@ -219,5 +254,5 @@ export function createAudio() {
     }
   }
 
-  return { unlock, play, startAmbient, setAlarm };
+  return { unlock, play, playFile, preloadFile, startAmbient, setAlarm };
 }

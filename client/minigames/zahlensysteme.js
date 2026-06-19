@@ -53,6 +53,12 @@ export default {
     return { geloest, teiltreffer, hinweis };
   },
 
+  // Liefert eine korrekte Eingabe zur Aufgabe (DOM-frei): der Zielwert selbst.
+  // Genutzt von den Debug-Bots und den Tests.
+  solve(task) {
+    return { value: task.target };
+  },
+
   mount(root, task, ctx) {
     const bitsOn = new Array(task.bits).fill(0); // Index 0 = hoechstwertiges Bit
     const weightOf = (i) => 1 << (task.bits - 1 - i);

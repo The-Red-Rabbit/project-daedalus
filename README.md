@@ -13,32 +13,51 @@ npm start
 
 Danach im Browser öffnen:
 
-- Host (Laptop am Beamer): http://localhost:3000/host
+- Start/Übersicht: http://localhost:3000/host (führt zu den beiden Host-Ansichten)
+- Brücke (Beamer): http://localhost:3000/beamer
+- Leitstand (Lehrkraft): http://localhost:3000/dashboard
 - Controller (Smartphone): http://localhost:3000/controller
 
-Im selben WLAN verbinden sich die Smartphones über den QR-Code, den der Host anzeigt.
+Im selben WLAN verbinden sich die Smartphones über den QR-Code, den die Brücke (und der Leitstand) anzeigt.
 
 Tests laufen mit `npm test` (reine Logik, ohne zusätzliche Abhängigkeiten).
 
 ## Spielen
 
-Der Host am Beamer zeigt das Schiff, die geteilten Werte (Hülle, Energie, Fortschritt), den Stationsstatus mit Besatzung, den Beitritts-QR und den Leitstand der Lehrkraft. Wer beitritt, gibt im Smartphone einen Namen ein. Der Server weist die Rolle selbst zu: Operator einer freien Station oder, wenn alle besetzt sind, Co-Pilot, der einer Station zuarbeitet. So wartet niemand. Drei Stationen mit je einem Mini-Spiel:
+Der Host teilt sich in zwei Ansichten: die **Brücke** kommt auf den Beamer, der **Leitstand** bleibt bei der Lehrkraft.
 
-- Bordcomputer: das passende logische Gatter wählen, bis die Wahrheitstabelle stimmt.
+- Die **Brücke** (`/beamer`) zeigt den Blick aus dem Cockpit ins Asteroidenfeld – Sterne und Brocken kommen aus der Tiefe auf die Crew zu und vermitteln die Fahrt des Schiffs. Dazu die geteilten Werte (Hülle, Energie, Fortschritt) und den Stationsstatus. Vor dem Start ist hier die Lobby mit großem Beitritts-QR und der schon anwesenden Crew.
+- Der **Leitstand** (`/dashboard`) gehört der Lehrkraft: Spiel starten, Grundschwierigkeit setzen, Asteroidenwellen auslösen, neuen Anlauf beginnen sowie Stationen und Crew live verfolgen.
+
+Wer beitritt, gibt im Smartphone einen Namen ein und wartet in der Lobby, bis die Lehrkraft startet. Der Server weist die Rolle selbst zu: Operator einer freien Station oder, wenn alle besetzt sind, Co-Pilot, der einer Station zuarbeitet. So wartet niemand auf eine Aufgabe. Drei Stationen mit je einem Mini-Spiel:
+
+- Bordcomputer: aus mehreren Gattern eine kleine Schaltung bauen, die genau die vorgegebene Wahrheitstabelle erzeugt. Rückmeldung gibt es erst nach dem Bestätigen, und ein Fehlversuch kostet Stabilität – blindes Probieren lohnt sich nicht.
 - Sensorik: R und C so einstellen, dass die Kante des Tiefpassfilters die Zielmarke trifft.
 - Navigation: einen Zielcode über Bit-Schalter im Dualsystem nachbauen.
+- Reaktor (kooperativ, zu zweit): Operator und Co-Pilot kalibrieren gemeinsam eine Reaktanz auf den Zielwert. Jede Person steuert nur einen verborgenen Regler (Kapazität bzw. Frequenz), beide sehen Ziel und Annäherung auf der Brücke – das zwingt zum Reden. Erst wenn beide bei passendem Wert bestätigen, rastet die Kalibrierung ein. Ist nur eine Person da, bedient sie beide Regler.
 
-Eine Station bleibt nur stabil, solange sie betreut wird, sonst verfällt sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste bringt das Schiff in den nächsten Sektor und lässt die Rollen rotieren; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Über den Leitstand löst die Lehrkraft Asteroidenwellen aus, setzt die Grundschwierigkeit, schaltet den Ton ein und startet mit „Runde neu“ einen neuen Anlauf. Fällt ein Smartphone kurz aus dem WLAN, verbindet es sich von selbst wieder und tritt mit demselben Namen bei.
+Eine Station bleibt nur stabil, solange sie betreut wird, sonst verfällt sie und die Hülle leidet. Die Energie hängt am Reaktor: ist er stabil kalibriert, hält oder steigt sie, sonst fällt sie. Nach dem Start und nach jedem Sektorwechsel gibt es eine kurze Schonzeit (ein Anflug von einigen Sekunden), in der nichts verfällt und die Hülle hält, damit die Crew in Ruhe ankommt; die Brücke zeigt sie an. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste bringt das Schiff in den nächsten Sektor und lässt die Rollen rotieren; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Über den Leitstand löst die Lehrkraft Asteroidenwellen aus, setzt die Grundschwierigkeit und startet mit „Zurück zur Lobby“ einen neuen Anlauf. Fällt ein Smartphone kurz aus dem WLAN, verbindet es sich von selbst wieder und tritt mit demselben Namen bei.
 
 ## Im Unterricht einsetzen
 
-1. Laptop und Beamer ins Klassen-WLAN bringen, `npm start` ausführen und `/host` am Beamer öffnen.
-2. Einmal auf „Ton an“ tippen (Browser geben Audio erst nach einer Eingabe frei).
-3. Die Lernenden scannen den QR-Code, geben ihren Namen ein und treten bei. Mehr Personen als Stationen sind erwünscht, die zusätzlichen werden Co-Piloten.
-4. Grundschwierigkeit am Leitstand wählen. Während des Spiels justiert sich die Stufe pro Person nach dem Tempo.
-5. Mit „Asteroidenwelle“ Druck erzeugen, mit „Runde neu“ einen frischen Durchlauf starten.
+1. Laptop und Beamer ins Klassen-WLAN bringen, `npm start` ausführen und `/host` öffnen. Die Brücke (`/beamer`) auf den Beamer (Vollbild) ziehen, den Leitstand (`/dashboard`) auf dem Laptop behalten.
+2. Auf der Brücke einmal auf „Ton an“ tippen (Browser geben Audio erst nach einer Eingabe frei).
+3. Die Lernenden scannen den QR-Code, geben ihren Namen ein und treten bei. Mehr Personen als Stationen sind erwünscht, die zusätzlichen werden Co-Piloten. Wer beigetreten ist, erscheint in der Lobby.
+4. Am Leitstand die Grundschwierigkeit wählen und, sobald alle bereit sind, „Spiel starten“. Während des Spiels justiert sich die Stufe pro Person nach dem Tempo.
+5. Mit „Asteroidenwelle“ Druck erzeugen, mit „Zurück zur Lobby“ einen frischen Durchlauf starten.
 
 Hinweis: alles läuft im lokalen WLAN, ohne Internet und ohne Konten. Es genügt ein Raum (ein Server) für eine Klasse.
+
+## Solo testen mit Bots (Entwicklung)
+
+Zum Ausprobieren ohne mehrere Smartphones gibt es serverseitige Testspieler (Bots). Sie sind ein reines Entwicklerwerkzeug und nur sichtbar, wenn der Server mit der Umgebungsvariable `DAEDALUS_DEBUG` läuft, damit sie nie versehentlich im Unterricht auftauchen.
+
+```bash
+DAEDALUS_DEBUG=1 npm start      # bash
+$env:DAEDALUS_DEBUG=1; npm start  # PowerShell
+```
+
+Im Leitstand (`/dashboard`) erscheint dann ein abgesetzter Debug-Bereich „Simulierte Spieler“: eine Anzahl wählen, „Bots hinzufügen“, dann wie gewohnt „Spiel starten“. Die Bots treten über denselben Weg bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben automatisch (meist richtig, manchmal daneben); an der Reaktor-Station kalibrieren zwei Bots gemeinsam. Im Roster sind sie mit „🤖“ markiert. So lässt sich der ganze Ablauf bis zum Sieg oder zur Niederlage allein an Brücke und Leitstand beobachten (für ein voll besetztes Reaktor-Paar etwa acht Bots spawnen).
 
 ## Orientierung
 
