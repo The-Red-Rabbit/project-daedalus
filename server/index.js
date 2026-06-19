@@ -18,6 +18,9 @@ const CLIENT = join(ROOT, "client");
 const SHARED = join(ROOT, "shared");
 const ASSETS = join(ROOT, "assets");
 const PORT = Number(process.env.PORT) || 3000;
+// Debug-Werkzeug fuers Solo-Testen: nur aktiv mit DAEDALUS_DEBUG, damit weder die
+// Bots noch der Mini-Spiel-Teststand (/dev) je versehentlich im Unterricht auftauchen.
+const DEBUG = !!process.env.DAEDALUS_DEBUG;
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -40,6 +43,7 @@ async function serveStatic(req, res) {
   if (urlPath === "/beamer") urlPath = "/beamer/index.html";
   if (urlPath === "/dashboard") urlPath = "/dashboard/index.html";
   if (urlPath === "/controller") urlPath = "/controller/index.html";
+  if (urlPath === "/dev") urlPath = "/dev/index.html"; // Debug-Teststand (nur mit DAEDALUS_DEBUG erreichbar)
 
   // Zielverzeichnis: /shared und /assets liegen im Stamm, alles andere unter client/.
   let confineDir = CLIENT;
@@ -97,15 +101,17 @@ async function serveQr(res) {
 const server = http.createServer((req, res) => {
   const path = decodeURIComponent((req.url || "/").split("?")[0]);
   if (path === "/qr") return serveQr(res);
+  // Mini-Spiel-Teststand: ohne DAEDALUS_DEBUG existiert die Seite nicht.
+  if ((path === "/dev" || path.startsWith("/dev/")) && !DEBUG) {
+    res.writeHead(404);
+    return res.end("nicht gefunden");
+  }
   return serveStatic(req, res);
 });
 const wss = new WebSocketServer({ server });
 
 // Ein einzelner Raum genuegt fuer das MVP. Spaeter optional mehrere Raeume.
 const game = createGame({ stations: STATIONS, baseLevel: 1 });
-// Debug-Werkzeug fuer das Solo-Testen: nur aktiv, wenn DAEDALUS_DEBUG gesetzt ist,
-// damit es nie versehentlich im Unterricht auftaucht.
-const DEBUG = !!process.env.DAEDALUS_DEBUG;
 const bots = DEBUG ? createBots(game) : null;
 const hosts = new Set();
 const controllers = new Map(); // ws -> participantId
@@ -242,6 +248,27 @@ wss.on("connection", (ws) => {
       if (!hosts.has(ws) || !bots) return;
       if (msg.action === "spawn") bots.spawn(Math.min(20, Math.max(1, Math.floor(Number(msg.count) || 1))));
       else if (msg.action === "clear") bots.clear();
+      return;
+    }
+
+    // Debug-Teststand: setzt diesen Controller direkt als Operator auf eine
+    // gewaehlte Station und versetzt das Spiel in den Sandbox-Zustand, damit das
+    // Mini-Spiel sofort mountet. Bei einer Koop-Station kommt automatisch ein Bot
+    // als Partner dazu. Nur mit DAEDALUS_DEBUG, sonst stillschweigend ignoriert.
+    if (msg.type === C2S.DEBUG_SEAT) {
+      if (!DEBUG) return;
+      let pid = controllers.get(ws);
+      if (!pid) {
+        pid = `p${nextId++}`;
+        controllers.set(ws, pid);
+      }
+      const label = typeof msg.label === "string" ? msg.label.slice(0, 24) : "Dev";
+      const assignment = game.debugSeat(pid, label, msg.station, msg.level);
+      if (!assignment) return; // unbekannte Station
+      send(ws, S2C.JOINED, { role: "controller" });
+      const st = game.station(msg.station);
+      if (st && st.coop && bots) bots.spawnPartner(msg.station);
+      seat(ws, pid);
       return;
     }
   });

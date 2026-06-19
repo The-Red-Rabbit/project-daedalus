@@ -51,7 +51,10 @@ project-daedalus/
       dashboard.js          sendet Steuerbefehle, zeigt den Zustand live
     controller/
       index.html            Smartphone-Ansicht
-      controller.js         Beitritt, Wartelobby, Rollenanzeige (Operator/Co-Pilot), lädt das Mini-Spiel, HUD, Ergebnis
+      controller.js         Beitritt, Wartelobby, Rollenanzeige (Operator/Co-Pilot), lädt das Mini-Spiel, HUD, Ergebnis; Debug-Teststand über ?station=&level=
+    dev/
+      index.html            Mini-Spiel-Teststand: jede Station mit Stufen-Knöpfen (nur mit DAEDALUS_DEBUG erreichbar)
+      dev.js                baut die Stationsliste aus STATIONS, verlinkt den direkt gesetzten Controller
     minigames/
       registry.js           Mini-Spiele anmelden und nachschlagen
       _template.js          Vorlage für ein neues Mini-Spiel
@@ -94,7 +97,7 @@ Der Server tickt mit fester Rate (Vorgabe 10 Hz), aktualisiert die geteilten Wer
 
 Nachrichtentypen liegen in `shared/protocol.js`. Auszug:
 
-- Client an Server: `join` (Host oder Controller, optional `label`), `solveAttempt`, `requestTask`, `startGame`, `triggerEvent`, `setDifficulty`, `resetGame`, `debugBots` (`{ action: "spawn" | "clear", count? }`, nur Host und nur mit `DAEDALUS_DEBUG`), `coopInput` (`{ param: "a" | "b", value: 0..1 }`, stufenlose Eingabe der Koop-Station), `coopConfirm` (Bestaetigung der Koop-Station)
+- Client an Server: `join` (Host oder Controller, optional `label`), `solveAttempt`, `requestTask`, `startGame`, `triggerEvent`, `setDifficulty`, `resetGame`, `debugBots` (`{ action: "spawn" | "clear", count? }`, nur Host und nur mit `DAEDALUS_DEBUG`), `debugSeat` (`{ station, level, label? }`, Mini-Spiel-Teststand: setzt diesen Controller direkt auf eine Station, nur mit `DAEDALUS_DEBUG`), `coopInput` (`{ param: "a" | "b", value: 0..1 }`, stufenlose Eingabe der Koop-Station), `coopConfirm` (Bestaetigung der Koop-Station)
 - Server an Client: `joined` (fuer den Host zusaetzlich `debug`), `assignment`, `state`, `taskAssigned`, `result`, `event` (`kind`: `start`, `asteroid`, `rotate`)
 
 Der Host-`state` traegt zusaetzlich `grace`: die verbleibende Schonzeit in ganzen Sekunden nach Start und Sektorwechsel (0, wenn keine laeuft). In dieser Zeit verfaellt nichts und die Huelle haelt; die Bruecke blendet einen Anflug-Hinweis ein. Koop-Stationen liefern im `state` Zusatzfelder: in der Host-Sicht je Station `coop: true` und `coopView` (Ziel, Naehe `match`, Istwert – ohne die Einzel-Reglerwerte, der Informationsspalt bleibt). In der Controller-Sicht `coop` mit dem eigenen Reglerwert, Ziel, `match`, ob im Band und ob beide bestaetigt haben.
@@ -212,6 +215,14 @@ Aktuelles Tempo-Profil „mittel“ (spürbar ruhiger als der erste Stand, aber 
 ### Solo-Testen mit Bots (Entwicklung)
 
 Damit der ganze Ablauf allein an Brücke und Leitstand sichtbar wird, gibt es serverseitige Testspieler in `server/bots.js`. Sie sind ein reines Entwicklerwerkzeug, hinter der Umgebungsvariable `DAEDALUS_DEBUG` verborgen (sonst tauchen sie nie auf). Mit `DAEDALUS_DEBUG=1 npm start` erscheint im Leitstand ein abgesetzter Debug-Bereich „Simulierte Spieler“ (Anzahl wählen, hinzufügen, alle entfernen). Die Bots treten über dieselbe `addParticipant`-Logik bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben über den echten `solve`-Pfad (kein Sonderweg): meist korrekt, gelegentlich daneben, damit der Verfall sichtbar wird. Im Roster sind sie mit „🤖“ markiert. Steuern darf sie nur der Host (`debugBots`-Nachricht), und nur wenn der Server mit `DAEDALUS_DEBUG` läuft.
+
+### Mini-Spiel-Teststand (/dev, Entwicklung)
+
+Um ein einzelnes Mini-Spiel zu testen, ohne durch Lobby und Rotation zu spielen, gibt es den Teststand unter `/dev`. Auch er ist allein hinter `DAEDALUS_DEBUG` erreichbar: Ohne die Variable liefert der Server für `/dev` und `/dev/*` einen 404, die Seite existiert dann nicht. Der Leitstand verlinkt sie aus dem Debug-Bereich.
+
+`client/dev/dev.js` baut die Liste aus `STATIONS` (keine Doppelpflege) und zeigt je Station die Stufen 1 bis 3. Ein Klick öffnet `/controller?station=<id>&level=<n>` in einem neuen Tab. Der Controller erkennt die Query-Parameter (`devSeat`) und schickt statt des Namens-Beitritts die Nachricht `debugSeat`; danach laufen `assignment`, `taskAssigned` und `state` wie im echten Spiel und das Mini-Spiel mountet sofort.
+
+Serverseitig setzt `game.debugSeat(id, label, station, level)` den Teilnehmer gezielt als Operator auf die Station (über `seatParticipant`, das einen vorhandenen Operator zum Co-Pilot macht) und schaltet das Spiel in den **Sandbox**-Zustand: Phase `running`, aber im Tick ruhen Hüllenverlust, Spielende und Sektorfluss, damit eine einzelne Teststation nicht wegrotiert oder das Schiff aufreibt. Stabilitätsverfall und die Energie-Kopplung laufen weiter, damit sich das Mini-Spiel echt anfühlt. Für eine Koop-Station (`coop: true`) ergänzt der Server über `bots.spawnPartner(stationId)` automatisch einen Bot als Co-Pilot, sodass der Match-Wert lebt und der Koop-Pfad allein testbar ist. Den Sandbox-Zustand verlassen `startGame` (echter Start) und `reset` (zurück zur Lobby).
 
 ### Bekannte Lücken und mögliche nächste Schritte
 

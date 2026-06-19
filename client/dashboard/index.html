@@ -44,6 +44,9 @@
   .panel.debug h2 { color: var(--accent-orange); }
   .panel.debug[hidden] { display: none; }
   .debug-tag { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-orange); margin-bottom: 8px; }
+  .dev-link { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--edge); }
+  .dev-link a { color: var(--accent-cyan); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .dev-link a:hover { color: var(--accent-orange); }
 
   .value { margin-bottom: 12px; }
   .vhead { display: flex; justify-content: space-between; align-items: baseline; }
@@ -122,6 +125,8 @@
           <button id="btn-bots-clear">Alle entfernen</button>
         </div>
         <div class="hint">Erzeugt serverseitige Testspieler, die wie echte Lernende beitreten, Rollen bekommen, mitrotieren und ihre Aufgaben selbst lösen. Im Roster mit „🤖“ markiert. Nur sichtbar, wenn der Server mit „DAEDALUS_DEBUG“ läuft.</div>
+        <div class="dev-link"><a href="/dev" target="_blank" rel="noopener">→ Mini-Spiel-Teststand öffnen</a></div>
+        <div class="hint">Setzt dich direkt auf eine einzelne Station, ohne Lobby und Rotation. Die Koop-Station bekommt automatisch einen Bot-Partner.</div>
       </div>
     </div>
 

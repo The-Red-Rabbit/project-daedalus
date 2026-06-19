@@ -13,6 +13,7 @@ export const C2S = {
   SET_DIFFICULTY: "setDifficulty", // { level: 1 | 2 | 3 } (nur Host/Leitstand)
   RESET_GAME: "resetGame", // {} zurueck in die Lobby (nur Host)
   DEBUG_BOTS: "debugBots", // { action: "spawn" | "clear", count? } Solo-Test (nur Host, nur mit DAEDALUS_DEBUG)
+  DEBUG_SEAT: "debugSeat", // { station, level, label? } Teststand: direkt auf eine Station setzen (nur mit DAEDALUS_DEBUG)
   COOP_INPUT: "coopInput", // { param: "a" | "b", value: 0..1 } stufenlose Eingabe der Koop-Station
   COOP_CONFIRM: "coopConfirm", // {} Bestaetigung der Koop-Station (beide muessen bestaetigen)
 };

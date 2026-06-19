@@ -59,6 +59,12 @@ $env:DAEDALUS_DEBUG=1; npm start  # PowerShell
 
 Im Leitstand (`/dashboard`) erscheint dann ein abgesetzter Debug-Bereich „Simulierte Spieler“: eine Anzahl wählen, „Bots hinzufügen“, dann wie gewohnt „Spiel starten“. Die Bots treten über denselben Weg bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben automatisch (meist richtig, manchmal daneben); an der Reaktor-Station kalibrieren zwei Bots gemeinsam. Im Roster sind sie mit „🤖“ markiert. So lässt sich der ganze Ablauf bis zum Sieg oder zur Niederlage allein an Brücke und Leitstand beobachten (für ein voll besetztes Reaktor-Paar etwa acht Bots spawnen).
 
+## Ein einzelnes Mini-Spiel testen (Entwicklung)
+
+Damit man ein Mini-Spiel nicht über Lobby und Rotation „erspielen“ muss, gibt es einen Teststand unter `/dev`. Auch er ist nur erreichbar, wenn der Server mit `DAEDALUS_DEBUG` läuft (ohne die Variable liefert `/dev` einen 404, die Seite existiert dann schlicht nicht). Im Leitstand führt ein Link aus dem Debug-Bereich dorthin.
+
+Die Seite listet jede Station mit den Stufen 1 bis 3. Ein Klick öffnet den Controller in einem neuen Tab, der sich sofort als Operator auf diese Station setzt und das Mini-Spiel direkt mountet – ohne Beitritt, ohne Warten. Im Teststand bleibt die Hülle voll und der Sektorfluss ruht, sodass man beliebig lange ausprobieren kann. Bei der Koop-Station **Reaktor** kommt automatisch ein Bot als Partner dazu, damit der Match-Wert lebt und der Koop-Pfad allein testbar ist. Ein echtes Spiel beginnt erst wieder über „Spiel starten“ oder „Zurück zur Lobby“ am Leitstand.
+
 ## Orientierung
 
 - `CLAUDE.md`: Architektur, Konventionen und nächste Schritte. Erste Anlaufstelle.

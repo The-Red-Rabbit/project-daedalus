@@ -8,6 +8,8 @@ Stand 17.06.2026: Alle Tickets sind umgesetzt. T1, T2, T3, T4, T5 und T6 sind er
 
 Stand 18.06.2026 (Runde 2): Phase 1 bis 4 sind erledigt (siehe unten „Runde 2“). Debug-Bots fuers Solo-Testen, eine ruhigere Taktung, die kooperative Reaktor-Station, der Umbau des Bordcomputers zum Schaltungsbau und die Vertiefung von Tiefpass und Zahlensysteme sind umgesetzt und durch Tests (64 gruen) sowie Komplettdurchlaeufe mit Bots belegt.
 
+Stand 19.06.2026 (Runde 3, getrieben vom Klassentest-Feedback): Phase 4 (Mini-Spiel-Teststand) ist erledigt (siehe unten „Runde 3“). Die Phasen 5 bis 8 (Reaktor-Win-Flow, Onboarding und Sektorwechsel, Haertung von Bordcomputer und Zahlensysteme) stehen noch aus.
+
 ## T1: Sichtbarer QR-Code auf der Host-Seite (erledigt)
 
 Ziel: Der Host zeigt den Beitritts-Code groß auf der Beamer-Seite, nicht nur im Terminal.
@@ -139,6 +141,22 @@ Fertig, wenn: Beide Mini-Spiele belohnen Verständnis, die Tests sind grün und 
 ### Runde 2 · Phase 5: Backlog für nach dem Test
 
 Bewusst aufgeschoben, nicht vor dem Klassentest: dekoratives Bediengefühl als Politur (Panel aufschrauben, Schalter umlegen, Ventile als Ritual), weitere Stationen aus `docs/GAME_DESIGN.md` (Antrieb, Schilde), mehrere Räume statt eines einzigen Spiels, einfache Datenerfassung für die Reflexion, echte Assets in den Slots (Sprites und Sounddateien je Cue, im Manifest eingetragen). Details in `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`.
+
+## Runde 3
+
+Weiterentwicklung nach dem ersten Klassentest, getrieben vom Feedback (siehe `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`, Abschnitt „Round 3“). Phasenweise, mit bewusstem Stopp nach jeder Phase. Reihenfolge: Phase 4 (Teststand) zuerst, dann 5 (Reaktor-Win-Flow) und 6 (Onboarding und Sektorwechsel) bis zur erneut testbaren Linie; 7 und 8 (Haertung der Einzelspiele) koennen nach dem naechsten Test folgen.
+
+### Runde 3 · Phase 4: Mini-Spiel-Teststand (erledigt)
+
+Ziel: Ein einzelnes Mini-Spiel in Sekunden testen, ohne durch Lobby und Rotation zu spielen. Reines Entwicklerwerkzeug, hinter `DAEDALUS_DEBUG` wie die Bots.
+
+Felix' Wahl (AskUserQuestion): eine eigene `/dev`-Seite, die jede Station mit Stufen-Knoepfen listet; ein Klick oeffnet einen schon gesetzten Controller.
+
+Dateien: `shared/protocol.js` (neue Nachricht `debugSeat`), `server/game.js` (`seatParticipant`, `debugSeat`, Sandbox-Zustand mit Tick-Ruhe), `server/bots.js` (`spawnPartner`), `server/index.js` (`/dev`-Route nur mit Debug, `debugSeat`-Handler), neu `client/dev/index.html` und `client/dev/dev.js`, `client/controller/controller.js` (Debug-Pfad ueber `?station=&level=`), `client/dashboard/index.html` (Link aus dem Debug-Bereich).
+
+Vorgehen: Ein debug-only Pfad setzt einen Controller direkt als Operator auf eine gewaehlte Station und schaltet das Spiel in den Sandbox-Zustand (Phase `running`, aber Huellenverlust, Spielende und Sektorfluss ruhen, damit eine einzelne Teststation nicht wegrotiert oder das Schiff aufreibt; Stabilitaetsverfall und Energie-Kopplung laufen weiter). Eine Koop-Station bekommt automatisch einen Bot als Co-Pilot (`bots.spawnPartner`), damit der Match-Wert lebt. Das normale Spiel bleibt unberuehrt: der Teststand ist ein zusaetzlicher Pfad, kein Eingriff in Lobby oder Rotation. Ohne `DAEDALUS_DEBUG` liefert `/dev`/`/dev/*` einen 404 und der Server ignoriert `debugSeat`.
+
+Fertig, wenn: Mit Debug oeffnet man `/dev`, waehlt Station und Stufe und das Mini-Spiel mountet sofort; der Reaktor kommt mit Bot-Partner, sodass der Match-Wert wandert; ohne das Debug-Flag existiert der Eintrag nicht. Belegt durch `npm test` (64 gruen, keine Regression), einen Logik-Smoke (debugSeat/Sandbox/Koop-Partner) sowie HTTP- und WebSocket-Checks gegen einen laufenden Server mit und ohne `DAEDALUS_DEBUG`.
 
 ## Designhinweise für alle Tickets
 

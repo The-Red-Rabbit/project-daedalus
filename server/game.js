@@ -59,6 +59,10 @@ export function createGame(config) {
   let baseLevel = clampLevel(config.baseLevel || 1);
   let now = 0; // Sekundenuhr aus den Ticks (fuer das Tempo)
   let graceUntil = 0; // Ende der Schonzeit; bis dahin kein Verfall und kein Huellenverlust
+  // Sandbox: gesetzt durch den Debug-Teststand (debugSeat). Dann ruht der
+  // Schiffsverfall (kein Huellenverlust, kein Sektorfluss, kein Spielende), damit
+  // man ein einzelnes Mini-Spiel beliebig lange testen kann. Nur ueber DAEDALUS_DEBUG.
+  let sandbox = false;
 
   const station = (id) => stations.find((s) => s.id === id) || null;
   const stationName = (id) => (station(id) ? station(id).name : "");
@@ -135,6 +139,44 @@ export function createGame(config) {
     }
     participants.delete(id);
     return promoted ? { promoted: assignmentOf(promoted) } : {};
+  }
+
+  // Loest einen Teilnehmer von seiner Station, ohne ihn zu entfernen (keine
+  // Nachrueck-Logik). Hilfsschritt fuers gezielte Umsetzen (Debug-Teststand).
+  function detach(p) {
+    const s = station(p.stationId);
+    if (!s) return;
+    if (s.operatorId === p.id) s.operatorId = null;
+    else s.supporters = s.supporters.filter((x) => x !== p.id);
+    refreshStatus(s);
+  }
+
+  // Setzt einen vorhandenen Teilnehmer gezielt auf eine Station in einer Rolle.
+  // Nur fuer den Debug-Teststand und den Koop-Bot-Partner gedacht (das normale
+  // Spiel verteilt ueber place und rotate). Ein vorhandener Operator wird beim
+  // Aufsetzen eines neuen Operators zum Co-Pilot.
+  function seatParticipant(id, stationId, role) {
+    const p = participants.get(id);
+    const s = station(stationId);
+    if (!p || !s) return null;
+    detach(p);
+    if (role === "supporter") {
+      if (!s.supporters.includes(id)) s.supporters.push(id);
+      p.role = "supporter";
+    } else {
+      if (s.operatorId && s.operatorId !== id) {
+        const prev = participants.get(s.operatorId);
+        if (prev) {
+          s.supporters.unshift(prev.id);
+          prev.role = "supporter";
+        }
+      }
+      s.operatorId = id;
+      p.role = "operator";
+    }
+    p.stationId = s.id;
+    refreshStatus(s);
+    return assignmentOf(id);
   }
 
   // --- Koop-Station (Reaktor): geteilter Zustand auf dem Server -------------
@@ -323,10 +365,29 @@ export function createGame(config) {
   function startGame() {
     if (phase === PHASES.LOBBY) {
       phase = PHASES.RUNNING;
+      sandbox = false; // ein echter Start verlaesst den Teststand
       graceUntil = now + GRACE_SEC;
       for (const s of stations) if (s.coop) resetCoopStation(s);
     }
     return phase;
+  }
+
+  // Debug-Teststand: setzt einen Teilnehmer direkt als Operator auf eine Station
+  // und versetzt das Spiel in den laufenden Sandbox-Zustand, ohne Lobby und ohne
+  // Rotation. So mountet ein einzelnes Mini-Spiel sofort. Nur ueber den
+  // debug-Pfad im Server erreichbar (DAEDALUS_DEBUG). Liefert die Zuweisung.
+  function debugSeat(id, label, stationId, level) {
+    const s = station(stationId);
+    if (!s) return null;
+    if (!participants.get(id)) addParticipant(id, label || "Dev");
+    const p = participants.get(id);
+    p.level = clampLevel(level);
+    seatParticipant(id, stationId, "operator");
+    sandbox = true;
+    phase = PHASES.RUNNING;
+    graceUntil = now + GRACE_SEC;
+    if (s.coop) resetCoopStation(s);
+    return assignmentOf(id);
   }
 
   // Ereignis vom Leitstand. Eine Asteroidenwelle senkt die Huelle.
@@ -385,6 +446,7 @@ export function createGame(config) {
     sector = 1;
     phase = PHASES.LOBBY;
     graceUntil = 0;
+    sandbox = false; // den Teststand verlassen
     for (const s of stations) {
       s.stability = 0;
       refreshStatus(s);
@@ -418,7 +480,9 @@ export function createGame(config) {
 
     // Leerlauf und Vernachlaessigung kosten Huelle: unbesetzt am staerksten,
     // besetzt aber nicht stabil weniger, stabil gar nicht. In der Schonzeit nicht.
-    if (!inGrace) {
+    // Im Sandbox-Teststand bleibt die Huelle voll (eine einzelne Teststation laesst
+    // sonst die uebrigen unbesetzten Stationen das Schiff aufreiben).
+    if (!inGrace && !sandbox) {
       let drain = 0;
       for (const s of stations) {
         if (s.status === STATUS.CRITICAL) drain += HULL_DRAIN_CRITICAL;
@@ -436,6 +500,12 @@ export function createGame(config) {
         else shared.energie = Math.max(0, shared.energie - ENERGIE_DRAIN_PER_SEC * dtSeconds);
       }
     }
+
+    // Im Sandbox-Teststand ruht der Schiffsfluss: kein Niederlage-Ende, kein
+    // Fortschritt und kein Sektorwechsel, damit eine einzelne Teststation nicht
+    // wegrotiert oder gewinnt. Status- und Energieverlauf laufen weiter, damit das
+    // Mini-Spiel sich echt anfuehlt (Stabilitaet faellt, Reaktor speist die Energie).
+    if (sandbox) return { rotated: false };
 
     // Niederlage: leere Huelle beendet den Durchlauf.
     if (shared.huelle <= 0) {
@@ -556,6 +626,8 @@ export function createGame(config) {
     station,
     addParticipant,
     removeParticipant,
+    seatParticipant,
+    debugSeat,
     assignTask,
     assignmentOf,
     solve,

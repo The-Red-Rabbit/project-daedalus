@@ -22,9 +22,19 @@ let screen = "join";      // "join" | "waiting" | "game" | "end"
 let endPhase = null;      // welche Endphase zuletzt gezeigt wurde
 let lastState = null;     // letzter STATE (fuer Live-Updates der Koop-Station)
 
+// Debug-Teststand (/dev): per Query-Parameter direkt auf eine Station setzen,
+// ohne Lobby und Rotation. Greift nur, wenn der Server mit DAEDALUS_DEBUG laeuft
+// (sonst ignoriert er die debugSeat-Nachricht). Beispiel: ?station=reaktor&level=2
+const devParams = new URLSearchParams(location.search);
+const devSeat = devParams.get("station")
+  ? { station: devParams.get("station"), level: Number(devParams.get("level")) || 1, label: "Dev" }
+  : null;
+
 const net = connect({
   open: () => {
     setDisconnected(false);
+    // Teststand: direkt auf die gewaehlte Station setzen (auch nach Reconnect).
+    if (devSeat) return net.send(C2S.DEBUG_SEAT, devSeat);
     // Nach einem Reconnect automatisch mit demselben Namen wieder beitreten.
     if (joinedLabel !== null) net.send(C2S.JOIN, { role: "controller", label: joinedLabel });
   },
@@ -40,7 +50,10 @@ const net = connect({
 });
 
 // Erst der Beitritt mit Namen, dann steuert die Phase den Bildschirm.
-showJoin();
+// Im Teststand entfaellt der Namens-Beitritt: open() setzt direkt, der Rest
+// laeuft ueber assignment/task/state wie im echten Spiel.
+if (devSeat) startDevSeat();
+else showJoin();
 
 function clear() {
   if (current && current.unmount) current.unmount();
@@ -78,6 +91,16 @@ function showJoin() {
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") go();
   });
+}
+
+// Teststand: ohne Namens-Eingabe sofort als beigetreten gelten. Das Setzen selbst
+// uebernimmt der open-Handler (debugSeat); danach mounten assignment, task und
+// state das Mini-Spiel wie im echten Spiel. Ton entsperrt sich beim ersten Tippen.
+function startDevSeat() {
+  joined = true;
+  joinedLabel = devSeat.label;
+  screen = "joining";
+  app.innerHTML = `<div class="screen"><p class="muted">Teststand wird gesetzt …</p></div>`;
 }
 
 function applyAssignment(msg) {

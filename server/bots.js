@@ -55,6 +55,21 @@ export function createBots(game, opts = {}) {
     return bots.size;
   }
 
+  // Setzt einen Bot gezielt als Co-Pilot einer Koop-Station ein (Debug-Teststand).
+  // So bekommt eine einzelne testende Person sofort einen Partner, der Match-Wert
+  // lebt. Hat die Station schon einen Co-Pilot, wird kein zweiter erzeugt.
+  function spawnPartner(stationId) {
+    const s = game.station(stationId);
+    if (!s || s.supporters.length) return null;
+    const id = `bot${++seq}`;
+    game.addParticipant(id, `${NAME_PREFIX}${seq}`); // platziert zunaechst irgendwo
+    game.seatParticipant(id, stationId, "supporter"); // dann gezielt auf die Koop-Station
+    const b = { id, task: null, timer: 0 };
+    reseatOne(b);
+    bots.set(id, b);
+    return id;
+  }
+
   // Entfernt alle Bots wieder aus dem Spiel.
   function clear() {
     for (const id of [...bots.keys()]) {
@@ -126,5 +141,5 @@ export function createBots(game, opts = {}) {
 
   const count = () => bots.size;
 
-  return { spawn, clear, reseat, tick, count };
+  return { spawn, spawnPartner, clear, reseat, tick, count };
 }
