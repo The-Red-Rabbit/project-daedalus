@@ -45,6 +45,11 @@ export default {
   id: "reaktor",
   station: "Reaktor",
   coop: true,
+  // Kurzanleitung fuer die Anleitungskarte vor dem Spielen (DOM-frei, nur Text).
+  howto: {
+    goal: "Stellt zu zweit C und f ein und haltet die Reaktanz gemeinsam im Zielband, bis sie einrastet.",
+    example: "Beispiel: mehr C oder mehr f senkt die Reaktanz.",
+  },
 
   generate(level, rng) {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;

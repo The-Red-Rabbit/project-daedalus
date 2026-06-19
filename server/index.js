@@ -297,8 +297,10 @@ setInterval(() => {
     }
   }
   // Sektorwechsel: Rollen rotieren, alle bekommen neue Sitzordnung und Aufgabe.
+  // Das rotate-Ereignis traegt Sektor und Sektorzahl fuer das Zwischenbild auf
+  // Bruecke und Phones; die neue Station je Person folgt im anschliessenden assignment.
   if (rotated) {
-    broadcast(S2C.EVENT, { kind: "rotate", sector: hostState.sector });
+    broadcast(S2C.EVENT, { kind: "rotate", sector: hostState.sector, sectorCount: hostState.sectorCount });
     for (const [ws, pid] of controllers) seat(ws, pid);
   }
 }, 1000 / TICK_HZ);

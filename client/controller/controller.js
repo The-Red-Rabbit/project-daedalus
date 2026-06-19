@@ -18,9 +18,13 @@ let role = null;          // "operator" | "supporter"
 let stationName = "";
 let gamePhase = null;     // letzte bekannte Phase aus STATE
 let pendingTask = null;   // letzte zugewiesene Aufgabe (wird beim Start gemountet)
-let screen = "join";      // "join" | "waiting" | "game" | "end"
+let screen = "join";      // "join" | "waiting" | "interstitial" | "howto" | "game" | "end"
 let endPhase = null;      // welche Endphase zuletzt gezeigt wurde
 let lastState = null;     // letzter STATE (fuer Live-Updates der Koop-Station)
+let needHowto = false;    // vor dem Mounten erst die Kurzanleitung zeigen (Erststart + nach jeder Rotation)
+let interstitialTimer = null; // Sektorwechsel-Zwischenbild: danach geht es zur Anleitung
+let interSector = 0, interSectorCount = 0, interStationKnown = false; // Daten des Zwischenbilds
+const INTERSTITIAL_MS = 4200; // lang genug zum Lesen; die Schonzeit nach dem Wechsel deckt es
 
 // Debug-Teststand (/dev): per Query-Parameter direkt auf eine Station setzen,
 // ohne Lobby und Rotation. Greift nur, wenn der Server mit DAEDALUS_DEBUG laeuft
@@ -44,8 +48,10 @@ const net = connect({
     if (msg.type === S2C.TASK_ASSIGNED) applyTask(msg);
     if (msg.type === S2C.RESULT) handleResult(msg);
     if (msg.type === S2C.STATE) updateState(msg);
-    if (msg.type === S2C.EVENT && msg.kind === "start") toast("Einsatz gestartet");
-    if (msg.type === S2C.EVENT && msg.kind === "rotate") toast("Rollenwechsel: neuer Sektor");
+    // Sektorwechsel: erst ein Zwischenbild (Sektor erreicht, neue Station), dann
+    // die Anleitung, dann das Spiel. Der Start braucht kein Zwischenbild – dort
+    // fuehrt die Phase direkt zur Anleitungskarte.
+    if (msg.type === S2C.EVENT && msg.kind === "rotate") showInterstitial(msg.sector, msg.sectorCount);
   },
 });
 
@@ -58,6 +64,7 @@ else showJoin();
 function clear() {
   if (current && current.unmount) current.unmount();
   current = null;
+  clearTimeout(interstitialTimer);
   app.innerHTML = "";
 }
 
@@ -107,14 +114,24 @@ function applyAssignment(msg) {
   role = msg.role;
   stationName = msg.stationName || "";
   setTopbar(true);
-  // Im Wartezustand die Rollenanzeige aktualisieren; die Stations-UI selbst baut
-  // sich erst beim Start (Phase "running") aus der zugewiesenen Aufgabe auf.
+  // Jede (Neu-)Zuweisung ist ein frisches Hinsetzen: vor dem Mounten erst die
+  // Kurzanleitung zeigen (Erststart und nach jeder Rotation). Der Teststand
+  // ueberspringt sie, damit das Mini-Spiel sofort kommt.
+  if (!devSeat) needHowto = true;
+  // Im Wartezustand die Rollenanzeige aktualisieren; im Zwischenbild die neue
+  // Station nachtragen. Die Stations-UI baut sich erst nach „Los" auf.
   if (screen === "waiting") showWaiting();
+  else if (screen === "interstitial") {
+    interStationKnown = true;
+    renderInterstitial();
+  }
 }
 
 function applyTask(msg) {
   pendingTask = msg;
-  if (gamePhase === PHASES.RUNNING) mountGame();
+  // Aufgaben-Refresh nach dem Loesen mountet sofort neu; waehrend Zwischenbild
+  // oder Anleitung wartet die Aufgabe auf „Los".
+  if (gamePhase === PHASES.RUNNING && screen === "game") mountGame();
 }
 
 // --- Phasensteuerung ------------------------------------------------------
@@ -126,13 +143,28 @@ function updateState(state) {
   // Live-Werte (z. B. Match der Koop-Station) an das laufende Mini-Spiel reichen.
   if (screen === "game" && current && current.onState) current.onState(state);
   if (!joined) return;
-  if (gamePhase === PHASES.RUNNING) {
-    if (screen !== "game") mountGame();
-  } else if (gamePhase === PHASES.WON || gamePhase === PHASES.LOST) {
+  if (gamePhase === PHASES.WON || gamePhase === PHASES.LOST) {
     if (screen !== "end" || endPhase !== gamePhase) showEnd(gamePhase);
-  } else {
-    if (screen !== "waiting") showWaiting();
+    return;
   }
+  if (gamePhase === PHASES.RUNNING) {
+    // Zwischenbild und Anleitung steuern sich selbst (Timer bzw. „Los"); nicht stoeren.
+    if (screen === "interstitial" || screen === "howto") return;
+    if (screen !== "game") enterStation();
+    return;
+  }
+  // Lobby
+  if (screen !== "waiting") showWaiting();
+}
+
+// Beim Betreten einer Station: erst die Kurzanleitung, sonst direkt mounten.
+function enterStation() {
+  if (!pendingTask) {
+    showWaiting();
+    return;
+  }
+  if (needHowto && !devSeat) showHowto();
+  else mountGame();
 }
 
 function showWaiting() {
@@ -148,6 +180,12 @@ function showWaiting() {
   wrap.innerHTML =
     `<h1 class="title">Bereit</h1>` +
     `<p class="role-line">${line}</p>` +
+    // Kurze Einsatzbesprechung beim ersten Beitritt: worum es geht und dass die
+    // Crew die Stationen gemeinsam stabil haelt.
+    `<div class="mission">` +
+    `<div class="mission-head">Mission</div>` +
+    `<p>Die Daedalus fliegt durch ein Asteroidenfeld. Jede Person hält an ihrer Station ein kleines System stabil, nur gemeinsam kommt das Schiff voran. Fällt eine Station zu lange aus, leidet die Hülle.</p>` +
+    `</div>` +
     `<p class="muted">Warte auf den Start durch die Lehrkraft …</p>` +
     `<div class="wait-dots"><span></span><span></span><span></span></div>`;
   app.appendChild(wrap);
@@ -183,6 +221,74 @@ function mountGame() {
   current = mod.mount(root, task, ctx) || null;
   // Direkt mit dem letzten bekannten Zustand versorgen (Koop: Ziel/Match/Solo).
   if (current && current.onState && lastState) current.onState(lastState);
+}
+
+// --- Sektorwechsel-Zwischenbild und Kurzanleitung -------------------------
+
+// Zeigt nach einem Sektorwechsel ein paar Sekunden ein Zwischenbild (Sektor
+// erreicht, neue Station), bevor es zur Anleitung und ins Spiel geht. Die neue
+// Station traegt das anschliessende assignment nach (renderInterstitial).
+function showInterstitial(sector, sectorCount) {
+  clear();
+  screen = "interstitial";
+  setTopbar(true);
+  interSector = sector || 0;
+  interSectorCount = sectorCount || 0;
+  interStationKnown = false;
+  audio.play("progress.tick");
+  renderInterstitial();
+  interstitialTimer = setTimeout(() => {
+    if (screen === "interstitial") enterStation();
+  }, INTERSTITIAL_MS);
+}
+
+function renderInterstitial() {
+  if (screen !== "interstitial") return;
+  const rolle = role === "supporter" ? "Co-Pilot" : "Operator";
+  const sectorLine = interSectorCount ? `Sektor ${interSector} / ${interSectorCount}` : `Sektor ${interSector}`;
+  const stationLine =
+    interStationKnown && stationName
+      ? `Neue Station: <b>${stationName}</b> als <b>${rolle}</b>`
+      : `Neue Station wird zugewiesen …`;
+  app.innerHTML =
+    `<div class="screen interstitial">` +
+    `<div class="inter-kicker">Sektor erreicht</div>` +
+    `<div class="inter-sector">${sectorLine}</div>` +
+    `<div class="inter-rotate">Rollenwechsel</div>` +
+    `<div class="inter-station">${stationLine}</div>` +
+    `<div class="wait-dots"><span></span><span></span><span></span></div>` +
+    `</div>`;
+}
+
+// Kurzanleitung vor dem Spielen: Station, Ziel und ein kleines Beispiel, dann
+// „Los". Erscheint beim ersten Mal und nach jeder Rotation (nicht nach dem Loesen).
+function showHowto() {
+  if (!pendingTask) {
+    showWaiting();
+    return;
+  }
+  clear();
+  screen = "howto";
+  setTopbar(true);
+  const mod = registry[pendingTask.minigame];
+  const howto = (mod && mod.howto) || null;
+  const rolle = role === "supporter" ? "Co-Pilot" : "Operator";
+  const goal = howto ? howto.goal : "Bediene die Station und halte sie stabil.";
+  const example = howto && howto.example ? `<div class="howto-example">${howto.example}</div>` : "";
+  const name = stationName || (mod ? mod.station : "Station");
+  const wrap = document.createElement("div");
+  wrap.className = "screen howto";
+  wrap.innerHTML =
+    `<div class="howto-kicker">${rolle} · Station</div>` +
+    `<h1 class="title howto-name">${name}</h1>` +
+    `<div class="howto-card"><div class="howto-goal">${goal}</div>${example}</div>` +
+    `<button class="bc-confirm howto-go">Los</button>`;
+  app.appendChild(wrap);
+  wrap.querySelector(".howto-go").addEventListener("click", () => {
+    audio.play("ui.toggle");
+    needHowto = false;
+    mountGame();
+  });
 }
 
 function showEnd(phase) {
@@ -294,19 +400,4 @@ function setDisconnected(on) {
     box.innerHTML = `<div><div class="dc-title">Verbindung verloren</div><div class="muted">Neuer Versuch läuft …</div></div>`;
     document.body.appendChild(box);
   }
-}
-
-let toastTimer = null;
-function toast(text) {
-  let t = document.getElementById("toast");
-  if (!t) {
-    t = document.createElement("div");
-    t.id = "toast";
-    t.className = "toast";
-    document.body.appendChild(t);
-  }
-  t.textContent = text;
-  t.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), 2500);
 }

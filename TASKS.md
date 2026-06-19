@@ -172,6 +172,22 @@ Architektur: `generate`/`validate`/`solve`/`solveFor` bleiben DOM-frei (nur die 
 
 Fertig, wenn: Mit einer Person plus Bot-Partner (oder zwei Tabs) erreicht man das Ziel durch Reden und Halten, es rastet ohne Confirm-Kampf glatt ein, die Energie reagiert weiter und die drei Einzelspiele bleiben unberuehrt. Belegt durch `npm test` (66 gruen) und einen WebSocket-Durchlauf ueber den `/dev`-Teststand (Operator haelt, Bot-Partner zieht nach: Einrasten, `result`-Rueckmeldung, neues Ziel nach der Pause, Huelle bleibt im Sandbox voll).
 
+### Runde 3 · Phase 6: Onboarding und klarer Sektorwechsel (erledigt)
+
+Ziel: Wer eine Station noch nie gesehen hat, versteht sie ohne gesprochene Hilfe, und der Sektorwechsel ist kein abrupter Sprung mehr. Erreicht die erneut testbare Linie (Phasen 4 bis 6).
+
+Felix' Wahl (AskUserQuestion): je Station eine Zielzeile plus ein kleines, konkretes Beispiel.
+
+Kurzanleitung je Station: Jedes Mini-Spiel bringt ein DOM-freies Feld `howto` mit (`goal` und `example`). Vor dem Mounten zeigt der Controller eine kompakte Anleitungskarte (Station, Ziel, Beispiel, Knopf „Los") – beim Erststart und nach jeder Rotation, nicht nach dem blossen Loesen (das mountet die naechste Aufgabe sofort). Der `/dev`-Teststand ueberspringt die Karte.
+
+Einsatzbesprechung: Die Wartelobby auf dem Controller traegt einen kurzen Missionsblock (worum es geht, dass die Crew die Stationen gemeinsam stabil haelt).
+
+Sektorwechsel: Das `rotate`-Ereignis traegt jetzt `sector` und `sectorCount`. Beim Wechsel zeigt die Bruecke ein grosses Zwischenbild („Sektor N erreicht · Rollenwechsel"), die Phones zeigen „Sektor erreicht" samt neuer Station und Rolle – ein paar Sekunden lang, gedeckt von der Schonzeit `grace`. Danach folgt die Anleitungskarte und das Spiel. Die neue Station je Person kommt im `assignment` direkt nach dem `rotate`.
+
+Architektur: `generate`/`validate` bleiben DOM-frei; `howto` ist reiner Text. Texte knapp, aus der Entfernung lesbar, Farben/Typo ueber die Tokens, deutsche Anfuehrungszeichen, keine Gedankenstriche. Ein Test sichert, dass jedes Mini-Spiel ein vollstaendiges `howto` mitbringt.
+
+Fertig, wenn: Eine Person kann eine Station allein aus der Karte starten, und nach einem Sektorabschluss kuendigen Bruecke und Phones klar Sektor und neue Station an, bevor es weitergeht. Belegt durch `npm test` (67 gruen, inkl. howto-Test) und einen WebSocket-Durchlauf (Bots treiben einen echten Sektorwechsel: `start`-Ereignis, `rotate` mit `sector`/`sectorCount`, danach das `assignment` der neuen Station).
+
 ## Designhinweise für alle Tickets
 
 - Farben und Schriften nur über `client/styles/tokens.css`.

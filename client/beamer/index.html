@@ -29,6 +29,13 @@
   .station .stability > div { height: 100%; width: 0; transition: width 0.2s linear; }
   #banner { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-yellow); color: var(--text-primary); font-size: 18px; letter-spacing: 0.04em; padding: 10px 20px; border-radius: 3px; opacity: 0; transition: opacity 0.25s; }
   #banner.show { opacity: 1; }
+  /* Sektorwechsel-Zwischenbild: grosser, ruhiger Beat, aus der Entfernung lesbar. */
+  #sector-interstitial { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: rgba(8,9,11,0.72); }
+  #sector-interstitial[hidden] { display: none; }
+  .si-card { text-align: center; background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 38px 64px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+  .si-kicker { font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+  .si-sector { font-size: 72px; font-weight: 700; letter-spacing: 0.06em; margin: 6px 0 6px; color: var(--accent-cyan); }
+  .si-rotate { font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-yellow); }
   /* Schonzeit-Hinweis: ruhiger Anflug nach Start und Sektorwechsel. */
   #grace-hint { position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-cyan); color: var(--text-primary); font-size: 16px; letter-spacing: 0.04em; padding: 8px 18px; border-radius: 3px; }
   #grace-hint[hidden] { display: none; }
@@ -113,6 +120,14 @@
 
     <div id="banner"></div>
     <div id="grace-hint" hidden></div>
+
+    <div id="sector-interstitial" hidden>
+      <div class="si-card">
+        <div class="si-kicker">Sektor erreicht</div>
+        <div class="si-sector" id="si-sector">Sektor 2</div>
+        <div class="si-rotate">Rollenwechsel · neue Stationen</div>
+      </div>
+    </div>
 
     <div id="reaktor" hidden>
       <div class="rk-kicker">Reaktor · Kalibrierung</div>

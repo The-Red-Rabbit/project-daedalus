@@ -24,6 +24,11 @@ function formatTarget(task) {
 export default {
   id: "zahlensysteme",
   station: "Navigation",
+  // Kurzanleitung fuer die Anleitungskarte vor dem Spielen (DOM-frei, nur Text).
+  howto: {
+    goal: "Lege die Bit-Schalter so um, dass ihr Gesamtwert den Zielcode ergibt.",
+    example: "Beispiel: 0110 = 4 + 2 = 6.",
+  },
 
   generate(level, rng) {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;

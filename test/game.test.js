@@ -43,6 +43,13 @@ function passGrace(game) {
   for (let i = 0; i < 50 && game.hostState().grace > 0; i++) game.tick(1);
 }
 
+test("alle Mini-Spiele bringen eine Kurzanleitung mit (howto: Ziel und Beispiel)", () => {
+  for (const [id, mod] of Object.entries(registry)) {
+    assert.ok(mod.howto && typeof mod.howto.goal === "string" && mod.howto.goal.length > 0, `${id}: howto.goal fehlt`);
+    assert.ok(typeof mod.howto.example === "string" && mod.howto.example.length > 0, `${id}: howto.example fehlt`);
+  }
+});
+
 test("Beitritt: die erste Person wird Operator der ersten Station", () => {
   const game = createGame({ stations: ONE, baseLevel: 1 });
   const a = game.addParticipant("p1", "Anna");

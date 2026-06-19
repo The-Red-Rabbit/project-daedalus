@@ -98,11 +98,13 @@ Der Server tickt mit fester Rate (Vorgabe 10 Hz), aktualisiert die geteilten Wer
 Nachrichtentypen liegen in `shared/protocol.js`. Auszug:
 
 - Client an Server: `join` (Host oder Controller, optional `label`), `solveAttempt`, `requestTask`, `startGame`, `triggerEvent`, `setDifficulty`, `resetGame`, `debugBots` (`{ action: "spawn" | "clear", count? }`, nur Host und nur mit `DAEDALUS_DEBUG`), `debugSeat` (`{ station, level, label? }`, Mini-Spiel-Teststand: setzt diesen Controller direkt auf eine Station, nur mit `DAEDALUS_DEBUG`), `coopInput` (`{ param: "a" | "b", value: 0..1 }`, stufenlose Eingabe der Koop-Station). `coopConfirm` ist veraltet (die Koop-Station rastet jetzt ueber die Haltezeit ein) und bleibt nur fuer die Kompatibilitaet im Protokoll.
-- Server an Client: `joined` (fuer den Host zusaetzlich `debug`), `assignment`, `state`, `taskAssigned`, `result` (auch bei eingerasteter Koop-Station), `event` (`kind`: `start`, `asteroid`, `rotate`)
+- Server an Client: `joined` (fuer den Host zusaetzlich `debug`), `assignment`, `state`, `taskAssigned`, `result` (auch bei eingerasteter Koop-Station), `event` (`kind`: `start` mit `sector`; `asteroid`; `rotate` mit `sector` und `sectorCount` fuers Zwischenbild – die neue Station je Person folgt im anschliessenden `assignment`)
 
 Der Host-`state` traegt zusaetzlich `grace`: die verbleibende Schonzeit in ganzen Sekunden nach Start und Sektorwechsel (0, wenn keine laeuft). In dieser Zeit verfaellt nichts und die Huelle haelt; die Bruecke blendet einen Anflug-Hinweis ein. Koop-Stationen liefern im `state` Zusatzfelder: in der Host-Sicht je Station `coop: true` und `coopView` (Ziel, Naehe `match`, Istwert, Haltefortschritt `hold` 0..1 und `locked` – ohne die Einzel-Reglerwerte, der Informationsspalt bleibt). In der Controller-Sicht `coop` mit dem eigenen Reglerwert, Ziel, `match`, ob im Band, dem Haltefortschritt `hold` und `locked`.
 
 Das Spiel beginnt in der Phase `lobby` (`PHASES`) und wartet auf den Start durch die Lehrkraft. Der Server verteilt die Stationen selbst: Auf das `join` eines Controllers folgt ein `assignment` (Operator oder Co-Pilot samt Station) und eine erste Aufgabe, niemand wartet. `startGame` (Lobby → laufend; verteilt frische Aufgaben), `triggerEvent` (Asteroidenwelle), `setDifficulty` (Grundstufe) und `resetGame` (zurück in die Lobby) nimmt der Server nur vom Host an (Leitstand). Beim Sektorwechsel rotiert er die Sitzordnung und schickt allen ein neues `assignment`. Der Host erhält im `state` die Gesamtansicht (Sektor, Phase, Crew, `roster` mit allen Namen, Stationen mit Operator und Co-Pilot-Namen), ein Controller seine Stationsansicht samt Phase. Der Controller mountet sein Mini-Spiel erst in der Phase `running` und zeigt davor die Wartelobby, danach das Ergebnis.
+
+Onboarding und Sektorwechsel (Phase 6): Die Wartelobby auf dem Controller traegt eine kurze Einsatzbesprechung („Mission"). Vor jedem Mounten zeigt der Controller eine Anleitungskarte aus `howto` der Station (Ziel, Beispiel, „Los") – beim Erststart und nach jeder Rotation, nicht nach dem blossen Loesen (das mountet die naechste Aufgabe direkt). Beim Sektorwechsel kommt zuerst ein Zwischenbild: die Bruecke blendet gross „Sektor N erreicht" ein, die Phones zeigen „Sektor erreicht" samt neuer Station und Rolle, ein paar Sekunden lang (die Schonzeit `grace` deckt die Lesezeit). Erst danach folgt die Anleitungskarte und das Spiel. Der Teststand (`/dev`) ueberspringt die Anleitungskarte, damit das Mini-Spiel sofort kommt.
 
 ## Zufallsgenerierung der Mini-Spiele
 
@@ -124,6 +126,7 @@ Jedes Mini-Spiel ist ein ES-Modul mit einem Default-Export, das diese Form erfü
 export default {
   id: "bordcomputer",            // eindeutig, klein geschrieben
   station: "Bordcomputer",       // Anzeigename der Station
+  howto: { goal: "...", example: "..." }, // Kurzanleitung fuer die Anleitungskarte (nur Text)
   generate(level, rng) { ... },  // erzeugt eine Aufgabe (taskData) aus dem Zufall
   mount(root, task, ctx) { ... },// baut die Controller-UI in root auf
   validate(task, input) { ... }, // prüft eine Eingabe
@@ -132,6 +135,8 @@ export default {
 ```
 
 `mount` bekommt ein Wurzelelement, die Aufgabe und einen Kontext `ctx` mit `ctx.audio.play("ui.toggle")`, `ctx.submit(input)`, `ctx.station` (Anzeigename) und `ctx.role` (`"operator"` oder `"supporter"`). Es liefert ein Handle mit `unmount()` und optional `onResult(res)` zurück. `validate` gibt `{ geloest, teiltreffer, hinweis }` zurück, wobei `teiltreffer` zwischen 0 und 1 die Live-Rückmeldung speist.
+
+`howto` ist eine kurze Anleitung (Felder `goal` und `example`, reiner Text, DOM-frei). Der Controller zeigt sie als Anleitungskarte (Station, Ziel, Beispiel, Knopf „Los") vor dem Mounten – beim Erststart und nach jeder Rotation, nicht nach dem blossen Loesen. Alle vier Mini-Spiele bringen sie mit.
 
 Wichtig: `generate` und `validate` müssen DOM-frei bleiben, denn der Server ruft sie zur autoritativen Prüfung ebenfalls auf. Nur `mount` darf das Document benutzen. Registriert sind derzeit `bordcomputer`, `tiefpassfilter`, `zahlensysteme` und `reaktor` (kooperativ).
 

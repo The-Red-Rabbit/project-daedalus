@@ -65,10 +65,23 @@ const net = connect({
     }
     if (msg.type === S2C.EVENT && msg.kind === "rotate") {
       if (audioOn) audio.play("progress.tick");
-      banner(`Sektor ${msg.sector} · Rollenwechsel`);
+      showSectorInterstitial(msg.sector, msg.sectorCount);
     }
   },
 });
+
+// Sektorwechsel-Zwischenbild: ein paar Sekunden gross einblenden, lang genug zum
+// Lesen. Die Schonzeit nach dem Wechsel deckt diese Pause ab.
+let interTimer = null;
+function showSectorInterstitial(sector, sectorCount) {
+  const box = el("sector-interstitial");
+  el("si-sector").textContent = sectorCount ? `Sektor ${sector} / ${sectorCount}` : `Sektor ${sector}`;
+  box.hidden = false;
+  clearTimeout(interTimer);
+  interTimer = setTimeout(() => {
+    box.hidden = true;
+  }, 4200);
+}
 
 let bannerTimer = null;
 function banner(text) {
@@ -109,6 +122,11 @@ function applyPhase(state) {
   el("lobby").hidden = phase !== PHASES.LOBBY;
   el("overlay").hidden = phase === PHASES.LOBBY;
   el("result").hidden = phase !== PHASES.WON && phase !== PHASES.LOST;
+  // Das Zwischenbild gehoert nur ins laufende Spiel; sonst sofort ausblenden.
+  if (phase !== PHASES.RUNNING) {
+    el("sector-interstitial").hidden = true;
+    clearTimeout(interTimer);
+  }
 
   if (phase === PHASES.LOBBY) renderLobbyCrew(state.roster || []);
   if (phase === PHASES.WON || phase === PHASES.LOST) {

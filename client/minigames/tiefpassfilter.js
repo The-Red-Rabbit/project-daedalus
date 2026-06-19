@@ -53,6 +53,11 @@ function modeLabel(mode) {
 export default {
   id: "tiefpassfilter",
   station: "Sensorik",
+  // Kurzanleitung fuer die Anleitungskarte vor dem Spielen (DOM-frei, nur Text).
+  howto: {
+    goal: "Baue die Kapazität aus zwei Kondensatoren (Reihe oder parallel) und triff damit die Grenzfrequenz auf der Zielmarke.",
+    example: "Beispiel: zwei gleiche Kondensatoren parallel ergeben die doppelte Kapazität.",
+  },
 
   generate(level, rng) {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;

@@ -68,6 +68,11 @@ function evalCircuit(slots, gates) {
 export default {
   id: "bordcomputer",
   station: "Bordcomputer",
+  // Kurzanleitung fuer die Anleitungskarte vor dem Spielen (DOM-frei, nur Text).
+  howto: {
+    goal: "Wähle für jedes Gatter den Typ, sodass die Ausgangsspalte genau zur Zieltabelle passt.",
+    example: "Beispiel: UND ist nur 1, wenn A und B beide 1 sind.",
+  },
 
   generate(level, rng) {
     const cfg = levelConfig(level);
