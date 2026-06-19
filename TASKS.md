@@ -158,6 +158,20 @@ Vorgehen: Ein debug-only Pfad setzt einen Controller direkt als Operator auf ein
 
 Fertig, wenn: Mit Debug oeffnet man `/dev`, waehlt Station und Stufe und das Mini-Spiel mountet sofort; der Reaktor kommt mit Bot-Partner, sodass der Match-Wert wandert; ohne das Debug-Flag existiert der Eintrag nicht. Belegt durch `npm test` (64 gruen, keine Regression), einen Logik-Smoke (debugSeat/Sandbox/Koop-Partner) sowie HTTP- und WebSocket-Checks gegen einen laufenden Server mit und ohne `DAEDALUS_DEBUG`.
 
+### Runde 3 · Phase 5: Reaktor entwirren (erledigt)
+
+Ziel: Der Reaktor soll sich wie der SOS-Schieber anfuehlen, der im Unterricht funktioniert hat. Zwei Personen reden, justieren ihre verborgenen Parameter, und die Kalibrierung rastet von selbst ein, wenn sie den kombinierten Wert im Zielband halten. Kein Bestaetigungs-Tanz. Es ging um den Win-Flow und die Klarheit, nicht um einen Logik-Umbau (das Modul bestand alle Tests).
+
+Felix' Wahl (AskUserQuestion): nach dem Einrasten rollt nach einer kurzen sichtbaren Pause ein frisches Ziel; Toleranz „Balanced“ (Stufe 1 ±16 %, Stufe 2 ±11 %, Stufe 3 ±7 %).
+
+Mechanik (Hold-to-Lock): Der duale Confirm-Win entfaellt. Halten beide den kombinierten Wert `HOLD_SEC` (1,5 s) am Stueck im Toleranzband, rastet die Station von selbst ein (stabil), zeigt eine sichtbare Pause `RELOCK_PAUSE_SEC` (1,2 s) und rollt dann ein neues Ziel. Den Fortschritt treibt der Server im Tick (`advanceCoop`) voran und liefert ihn als `hold` (0..1) und `locked` in die Sichten; beim Einrasten schickt er den beteiligten Controllern ein `result` (Ton und Rueckmeldung). Der Bestaetigen-Knopf ist weg; `coopConfirm`/`COOP_CONFIRM` sind veraltet, der Konstantenname bleibt nur fuer die Kompatibilitaet im Protokoll. Die Bots halten im Band, statt zu bestaetigen.
+
+Klarheit: grosse Zustandszeile (zu hoch / zu niedrig / im Band – halten / kalibriert), die Match-Leiste mit klarem Bandmarker (gestrichelte Kante) und ein sich fuellender Einrast-Ring (Conic-Gradient). Der Peilton `reaktor.tune` bleibt und wird naeher am Ziel dichter; im Moment des Einrastens spielt `ui.confirm`.
+
+Architektur: `generate`/`validate`/`solve`/`solveFor` bleiben DOM-frei (nur die Toleranzwerte aendern sich); der Server haelt den geteilten Zustand inkl. Haltezeit und validiert autoritativ. `test/game.test.js` ist auf Hold-to-Lock umgestellt (Einrasten durch Halten, kein Lock ausserhalb des Bandes, Haltezeit-Reset, neues Ziel nach der Pause, Solo, Energie-Kopplung).
+
+Fertig, wenn: Mit einer Person plus Bot-Partner (oder zwei Tabs) erreicht man das Ziel durch Reden und Halten, es rastet ohne Confirm-Kampf glatt ein, die Energie reagiert weiter und die drei Einzelspiele bleiben unberuehrt. Belegt durch `npm test` (66 gruen) und einen WebSocket-Durchlauf ueber den `/dev`-Teststand (Operator haelt, Bot-Partner zieht nach: Einrasten, `result`-Rueckmeldung, neues Ziel nach der Pause, Huelle bleibt im Sandbox voll).
+
 ## Designhinweise für alle Tickets
 
 - Farben und Schriften nur über `client/styles/tokens.css`.

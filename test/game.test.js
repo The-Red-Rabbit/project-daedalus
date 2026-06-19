@@ -271,42 +271,85 @@ test("solve(): jedes Mini-Spiel liefert eine korrekte Eingabe (alle Stufen)", ()
   }
 });
 
-test("Reaktor: erst wenn beide bestaetigen, rastet die Kalibrierung ein", () => {
+// Haelt die Koop-Station eine Weile am Stueck (Tick fuer Tick) und liefert die
+// Host-Sicht der Station. HOLD_SEC betraegt 1,5 s; 1,6 s im Band reichen sicher.
+function tickCoop(game, seconds, dt = 0.1) {
+  let view = null;
+  for (let t = 0; t < seconds - 1e-9; t += dt) {
+    game.tick(dt);
+    view = game.hostState().stations.find((s) => s.coop).coopView;
+  }
+  return view;
+}
+
+test("Reaktor: im Band gehalten rastet die Kalibrierung von selbst ein (Hold-to-Lock)", () => {
   const game = createGame({ stations: COOP, baseLevel: 1 });
   game.addParticipant("op", "Op"); // Operator des Reaktors
   game.addParticipant("co", "Co"); // Co-Pilot derselben Station
   game.startGame();
-  aimCoop(game, "op", "co"); // beide Regler auf eine Loesung
-  const first = game.coopConfirm("op");
-  assert.equal(first.evaluated, false); // wartet auf die zweite Seite
-  assert.equal(game.station("rk").status, "achtung"); // noch nicht stabil
-  const second = game.coopConfirm("co");
-  assert.equal(second.geloest, true);
+  passGrace(game);
+  aimCoop(game, "op", "co"); // beide Regler auf eine Loesung -> im Band
+  assert.equal(game.station("rk").status, "achtung"); // Halten hat noch nicht begonnen
+  const view = tickCoop(game, 1.6); // > HOLD_SEC im Band halten
+  assert.equal(view.locked, true, "nach der Haltezeit sollte es eingerastet sein");
   assert.equal(game.station("rk").status, "stabil");
 });
 
-test("Reaktor: eine Reglerbewegung loescht die eigene Bestaetigung", () => {
+test("Reaktor: ausserhalb des Bandes rastet nichts ein", () => {
   const game = createGame({ stations: COOP, baseLevel: 1 });
   game.addParticipant("op", "Op");
   game.addParticipant("co", "Co");
   game.startGame();
-  aimCoop(game, "op", "co");
-  game.coopConfirm("op");
-  game.setCoopInput("op", "a", 0.1); // Bewegung loescht die Bestaetigung des Operators
-  const res = game.coopConfirm("co"); // nur der Co-Pilot ist bestaetigt -> nicht bereit
-  assert.equal(res.evaluated, false);
+  passGrace(game);
+  game.setCoopInput("op", "a", 0); // kleine C und f -> Reaktanz weit ueber dem Ziel
+  game.setCoopInput("co", "b", 0);
+  const view = tickCoop(game, 3); // lange daneben gehalten
+  assert.equal(view.locked, false);
   assert.equal(game.station("rk").status, "achtung");
 });
 
-test("Reaktor: Solo-Fallback – eine Person steuert beide Regler", () => {
+test("Reaktor: eine Reglerbewegung aus dem Band setzt die Haltezeit zurueck", () => {
+  const game = createGame({ stations: COOP, baseLevel: 1 });
+  game.addParticipant("op", "Op");
+  game.addParticipant("co", "Co");
+  game.startGame();
+  passGrace(game);
+  aimCoop(game, "op", "co");
+  let view = tickCoop(game, 1.0); // ein Stueck halten (noch unter HOLD_SEC)
+  assert.ok(view.hold > 0 && !view.locked, "Haltezeit baut sich auf, aber noch kein Lock");
+  game.setCoopInput("op", "a", 0); // raus aus dem Band -> Haltezeit faellt im Tick zurueck
+  game.tick(0.1);
+  view = game.hostState().stations.find((s) => s.coop).coopView;
+  assert.equal(view.hold, 0, "ausserhalb des Bandes ist die Haltezeit zurueckgesetzt");
+});
+
+test("Reaktor: nach dem Einrasten kommt nach kurzer Pause ein frisches Ziel", () => {
+  const game = createGame({ stations: COOP, baseLevel: 1 });
+  game.addParticipant("op", "Op");
+  game.addParticipant("co", "Co");
+  game.startGame();
+  passGrace(game);
+  const firstSeed = game.coopInfo("op").seed;
+  aimCoop(game, "op", "co");
+  let view = tickCoop(game, 1.6); // einrasten
+  assert.equal(view.locked, true);
+  tickCoop(game, 1.4); // durch die RELOCK_PAUSE_SEC (1,2 s) ticken
+  const secondSeed = game.coopInfo("op").seed;
+  view = game.hostState().stations.find((s) => s.coop).coopView;
+  assert.notEqual(secondSeed, firstSeed, "nach der Pause sollte ein neues Ziel stehen");
+  assert.equal(view.locked, false, "die Pause ist vorbei, das Paar kalibriert neu");
+});
+
+test("Reaktor: Solo-Fallback – eine Person haelt beide Regler", () => {
   const game = createGame({ stations: COOP, baseLevel: 1 });
   game.addParticipant("op", "Op"); // allein an der Station
   game.startGame();
+  passGrace(game);
   const info = game.coopInfo("op");
   assert.equal(info.solo, true);
   aimCoop(game, "op", null); // Solo: Operator stellt a und b
-  const res = game.coopConfirm("op"); // eine Bestaetigung genuegt
-  assert.equal(res.geloest, true);
+  const view = tickCoop(game, 1.6);
+  assert.equal(view.locked, true);
   assert.equal(game.station("rk").status, "stabil");
 });
 
@@ -320,8 +363,7 @@ test("Reaktor: Energie faellt ohne Kalibrierung und steigt mit stabilem Reaktor"
   const low = game.hostState().shared.energie;
   assert.ok(low < 100, "Energie sollte ohne Kalibrierung sinken");
   aimCoop(game, "op", "co");
-  game.coopConfirm("op");
-  game.coopConfirm("co"); // jetzt stabil
+  tickCoop(game, 1.6); // im Band halten -> rastet ein, Station stabil
   for (let i = 0; i < 3; i++) game.tick(1); // stabil -> Energie steigt
   assert.ok(game.hostState().shared.energie > low, "Energie sollte mit stabilem Reaktor steigen");
 });

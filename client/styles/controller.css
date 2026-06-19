@@ -169,37 +169,64 @@ body {
 .zs-readout b { font-family: var(--font-mono); color: var(--text-primary); font-size: 16px; }
 .zs-bin { font-family: var(--font-mono); letter-spacing: 0.12em; }
 
-/* Reaktor (kooperative Station): grosser Regler, Match-Leiste, Bestaetigung */
-.rk-target { font-size: 14px; color: var(--text-muted); margin-bottom: 10px; }
+/* Reaktor (kooperative Station): grosser Regler, Match-Leiste, Einrast-Ring */
+.rk-target { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; }
 .rk-target b { font-family: var(--font-mono); color: var(--accent-yellow); font-size: 20px; }
+/* Grosse, klare Zustandszeile: zu hoch / zu niedrig / im Band / kalibriert. */
+.rk-state { font-size: 22px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-muted); margin-bottom: 10px; min-height: 28px; }
 .rk-match {
   position: relative;
   height: 22px;
   background: var(--bg-void);
   border: 1px solid var(--edge);
-  margin-bottom: 8px;
+  margin-bottom: 16px;
   overflow: hidden;
 }
 .rk-match-fill { height: 100%; width: 0; background: var(--accent-cyan); transition: width 0.15s linear, background 0.2s; }
-/* Zielband als heller Streifen am rechten (nahen) Ende. */
+/* Zielband als heller Bereich am rechten (nahen) Ende; die linke Kante (per JS
+   gesetztes left) ist der klare Marker, wo das Band beginnt. */
 .rk-band {
   position: absolute;
   top: 0;
   right: 0;
   height: 100%;
   background: repeating-linear-gradient(45deg, transparent, transparent 5px, color-mix(in srgb, var(--status-stable) 30%, transparent) 5px, color-mix(in srgb, var(--status-stable) 30%, transparent) 10px);
-  border-left: 1px dashed var(--status-stable);
+  border-left: 2px dashed var(--status-stable);
   pointer-events: none;
 }
-.rk-readout { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 16px; }
-.rk-state { color: var(--text-muted); }
-.rk-partner { font-family: var(--font-mono); color: var(--text-muted); }
-.rk-controls { display: grid; gap: 16px; margin-bottom: 16px; }
+/* Einrast-Ring: fuellt sich als Conic-Gradient (per JS), solange im Band gehalten
+   wird, und schlaegt beim Einrasten auf das stabile Gruen um. */
+.rk-lock { display: flex; justify-content: center; margin-bottom: 18px; }
+.rk-lock-ring {
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent-cyan) 0deg, var(--bg-panel-2) 0deg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.1s linear;
+}
+.rk-lock-core {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--bg-void);
+  border: 1px solid var(--edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.rk-lock-ring.locked .rk-lock-core { color: var(--status-stable); border-color: var(--status-stable); }
+.rk-controls { display: grid; gap: 16px; margin-bottom: 14px; }
 .rk-row { display: flex; align-items: center; gap: 12px; }
 .rk-row-label { width: 20px; font-family: var(--font-mono); font-size: 16px; color: var(--accent-cyan); }
 .rk-row input[type="range"] { flex: 1; }
 .rk-row-val { width: 88px; text-align: right; font-family: var(--font-mono); color: var(--text-primary); }
-.rk-confirm.armed { color: var(--bg-void); background: var(--status-stable); }
+.rk-partner { font-family: var(--font-mono); font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 12px; }
 .rk-row input[type="range"] {
   -webkit-appearance: none;
   appearance: none;

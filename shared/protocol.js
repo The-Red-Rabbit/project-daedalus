@@ -15,7 +15,7 @@ export const C2S = {
   DEBUG_BOTS: "debugBots", // { action: "spawn" | "clear", count? } Solo-Test (nur Host, nur mit DAEDALUS_DEBUG)
   DEBUG_SEAT: "debugSeat", // { station, level, label? } Teststand: direkt auf eine Station setzen (nur mit DAEDALUS_DEBUG)
   COOP_INPUT: "coopInput", // { param: "a" | "b", value: 0..1 } stufenlose Eingabe der Koop-Station
-  COOP_CONFIRM: "coopConfirm", // {} Bestaetigung der Koop-Station (beide muessen bestaetigen)
+  COOP_CONFIRM: "coopConfirm", // {} veraltet: die Koop-Station rastet jetzt ueber die Haltezeit ein (Hold-to-Lock); nicht mehr noetig, bleibt fuer die Kompatibilitaet erhalten
 };
 
 // Nachrichten Server -> Client

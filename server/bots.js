@@ -87,7 +87,9 @@ export function createBots(game, opts = {}) {
 
   // Bedient eine Koop-Station (Reaktor): den eigenen Regler schrittweise auf die
   // Ziellinie zubewegen (gedaempft, damit es sich annaehert statt zu schwingen),
-  // und im Zielband bestaetigen. Im Solo-Fall steuert der Bot beide Regler.
+  // und im Zielband einfach halten – das Einrasten erledigt der Server ueber die
+  // Haltezeit (Hold-to-Lock, keine Bestaetigung mehr). Im Solo-Fall steuert der
+  // Bot beide Regler.
   function driveCoop(b, info) {
     if (info.spectator) return;
     const mod = registry[info.minigame];
@@ -95,26 +97,16 @@ export function createBots(game, opts = {}) {
     const task = mod.generate(info.level, mulberry32(info.seed));
     if (info.solo) {
       const sol = mod.solve(task);
-      let moved = false;
-      if (Math.abs(info.my - sol.a) > COOP_EPS) {
-        game.setCoopInput(b.id, "a", info.my + (sol.a - info.my) * COOP_RATE);
-        moved = true;
-      }
-      if (Math.abs(info.partner - sol.b) > COOP_EPS) {
-        game.setCoopInput(b.id, "b", info.partner + (sol.b - info.partner) * COOP_RATE);
-        moved = true;
-      }
-      if (!moved && info.inBand && !info.myConfirmed) game.coopConfirm(b.id);
+      // Beide Regler auf die Loesung ziehen; sind sie nah genug, einfach halten.
+      if (Math.abs(info.my - sol.a) > COOP_EPS) game.setCoopInput(b.id, "a", info.my + (sol.a - info.my) * COOP_RATE);
+      if (Math.abs(info.partner - sol.b) > COOP_EPS) game.setCoopInput(b.id, "b", info.partner + (sol.b - info.partner) * COOP_RATE);
       return;
     }
-    if (info.inBand) {
-      if (!info.myConfirmed) game.coopConfirm(b.id);
-    } else {
-      // Solange nicht im Band: weiter auf die Ziellinie zu (kein vorzeitiger Stopp,
-      // sonst friert das Paar knapp neben einem engen Band ein).
-      const ideal = mod.solveFor(task, info.partner, info.param);
-      game.setCoopInput(b.id, info.param, info.my + (ideal - info.my) * COOP_RATE);
-    }
+    // Im Band einfach halten; sonst weiter auf die Ziellinie zu (kein vorzeitiger
+    // Stopp, sonst friert das Paar knapp neben einem engen Band ein).
+    if (info.inBand) return;
+    const ideal = mod.solveFor(task, info.partner, info.param);
+    game.setCoopInput(b.id, info.param, info.my + (ideal - info.my) * COOP_RATE);
   }
 
   // Treibt die Bots: Koop-Teilnehmer kalibrieren stufenlos, alle anderen loesen

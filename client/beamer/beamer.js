@@ -162,12 +162,16 @@ function renderReaktor(state) {
   }
   const co = coopStation.coopView;
   panel.hidden = false;
-  panel.classList.toggle("locked", !!co.inBand);
+  // Gruen erst, wenn wirklich eingerastet (nicht schon beim Betreten des Bandes).
+  const locked = !!co.locked;
+  panel.classList.toggle("locked", locked);
   el("rk-target").textContent = formatOhm(co.target);
   const pct = Math.round((co.match || 0) * 100);
-  const fill = el("rk-match");
-  fill.style.width = `${pct}%`;
-  el("rk-actual").textContent = `Ist ${formatOhm(co.actual)} · Übereinstimmung ${pct}%`;
+  el("rk-match").style.width = `${pct}%`;
+  // Klartext fuer die Klasse: einrasten / halten / Istwert.
+  if (locked) el("rk-actual").textContent = "Kalibriert ✓";
+  else if (co.inBand) el("rk-actual").textContent = `Im Zielband – halten ${Math.round((co.hold || 0) * 100)}%`;
+  else el("rk-actual").textContent = `Ist ${formatOhm(co.actual)} · Übereinstimmung ${pct}%`;
 }
 
 function renderStations(stations) {

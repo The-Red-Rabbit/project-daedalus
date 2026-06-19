@@ -22,6 +22,8 @@ const FAST_SOLVE_SEC = 6;            // schneller geloest -> eine Stufe schwerer
 const SLOW_SOLVE_SEC = 18;           // langsamer geloest -> eine Stufe leichter
 const ENERGIE_GAIN_PER_SEC = 4;      // stabil kalibrierter Reaktor hebt die Energie
 const ENERGIE_DRAIN_PER_SEC = 3;     // unstabiler Reaktor laesst die Energie sinken
+const HOLD_SEC = 1.5;                // Reaktor: so lange den kombinierten Wert im Zielband halten, dann rastet die Kalibrierung von selbst ein (Hold-to-Lock)
+const RELOCK_PAUSE_SEC = 1.2;        // Reaktor: sichtbare "Kalibriert"-Pause nach dem Einrasten, bevor ein frisches Ziel rollt
 
 function clampLevel(level) {
   const n = Math.floor(Number(level));
@@ -45,8 +47,9 @@ export function createGame(config) {
     coopTask: null,
     paramA: 0.5, // Operator-Regler (z. B. Kapazitaet), normiert 0..1
     paramB: 0.5, // Co-Pilot-Regler (z. B. Frequenz), normiert 0..1
-    confirmA: false, // Operator hat bestaetigt
-    confirmB: false, // Co-Pilot hat bestaetigt
+    holdT: 0, // Hold-to-Lock: gehaltene Zeit im Zielband (Sekunden)
+    lockPause: 0, // verbleibende sichtbare Pause nach dem Einrasten (Sekunden)
+    locked: false, // gerade eingerastet (steigende Flanke loest die Rueckmeldung aus)
   }));
 
   // id -> { id, label, role, stationId, level, task, taskAt }
@@ -184,15 +187,16 @@ export function createGame(config) {
   const coopModule = (s) => registry[s.minigame] || null;
 
   // Rollt ein frisches Ziel fuer die Koop-Station (neuer Seed + Aufgabe) und
-  // loescht beide Bestaetigungen. Die Reglerwerte bleiben, damit nichts springt.
+  // setzt die Haltezeit zurueck. Die Reglerwerte bleiben, damit nichts springt.
   function rollCoopTarget(s) {
     const op = participants.get(s.operatorId);
     s.coopLevel = clampLevel(op ? op.level : baseLevel);
     s.coopSeed = makeSeed();
     const mod = coopModule(s);
     s.coopTask = mod ? mod.generate(s.coopLevel, mulberry32(s.coopSeed)) : null;
-    s.confirmA = false;
-    s.confirmB = false;
+    s.holdT = 0;
+    s.lockPause = 0;
+    s.locked = false;
   }
 
   // Setzt die Koop-Station ganz zurueck (Regler in die Mitte, frisches Ziel).
@@ -220,6 +224,8 @@ export function createGame(config) {
 
   // Stufenlose Eingabe eines Reglers. Der Server prueft die Berechtigung:
   // Operator stellt A, Co-Pilot stellt B; im Solo-Fall stellt der Operator beide.
+  // Die Wirkung auf die Haltezeit ergibt sich im Tick (Verlassen des Bandes setzt
+  // sie zurueck), nicht hier.
   function setCoopInput(pid, param, value) {
     const p = participants.get(pid);
     if (!p) return;
@@ -234,47 +240,50 @@ export function createGame(config) {
     if (param === "a") {
       if (!isOp) return;
       s.paramA = v;
-      s.confirmA = false; // Bewegung loescht die eigene Bestaetigung
     } else if (param === "b") {
-      if (partnerId === pid) {
-        s.paramB = v;
-        s.confirmB = false;
-      } else if (isOp && solo) {
-        s.paramB = v;
-        s.confirmA = false;
-      }
+      if (partnerId === pid) s.paramB = v;
+      else if (isOp && solo) s.paramB = v;
     }
   }
 
-  // Bestaetigung einer Seite. Sind alle anwesenden Seiten bestaetigt, wird sofort
-  // ausgewertet: im Zielband rastet die Kalibrierung ein (Station stabil, neues
-  // Ziel), sonst Fehlschlag (Bestaetigungen geloescht). Liefert das Ergebnis fuers
-  // Verteilen der Rueckmeldung.
-  function coopConfirm(pid) {
-    const p = participants.get(pid);
-    if (!p) return null;
-    const s = station(p.stationId);
-    if (!s || !s.coop) return null;
+  // Treibt das Hold-to-Lock einer Koop-Station fuer einen Zeitschritt voran.
+  // Haelt das Paar (oder solo) den kombinierten Wert im Zielband, fuellt sich die
+  // Haltezeit; ist sie voll, rastet die Kalibrierung ein: Station stabil, kurze
+  // sichtbare Pause, danach ein frisches Ziel. Verlaesst der Wert das Band, faellt
+  // die Haltezeit zurueck. Liefert das Crew-Array zurueck, wenn gerade eingerastet
+  // wurde (steigende Flanke), sonst null – fuer die Rueckmeldung im Server.
+  function advanceCoop(s, dtSeconds) {
+    if (!s.coop) return null;
     ensureCoopTask(s);
-    const isOp = s.operatorId === pid;
-    const partnerId = coopPartnerId(s);
-    const isPartner = partnerId === pid;
-    if (!isOp && !isPartner) return null; // Zuschauer bestaetigen nicht
-    if (isOp) s.confirmA = true;
-    else s.confirmB = true;
-    const ready = partnerId ? s.confirmA && s.confirmB : s.confirmA;
-    if (!ready) return { evaluated: false };
-    const measure = coopMeasure(s);
-    const crew = [s.operatorId, partnerId].filter(Boolean);
-    if (measure.inBand) {
-      s.stability = 1;
-      refreshStatus(s);
-      rollCoopTarget(s); // neues Ziel, beide muessen erneut treffen
-      return { evaluated: true, geloest: true, participants: crew, stationId: s.id };
+    // Ohne Operator ruht die Station (keine Haltezeit).
+    if (!s.operatorId) {
+      s.holdT = 0;
+      s.lockPause = 0;
+      s.locked = false;
+      return null;
     }
-    s.confirmA = false;
-    s.confirmB = false;
-    return { evaluated: true, geloest: false, participants: crew, stationId: s.id };
+    // Nach dem Einrasten eine sichtbare Pause, dann ein neues Ziel.
+    if (s.lockPause > 0) {
+      s.lockPause = Math.max(0, s.lockPause - dtSeconds);
+      if (s.lockPause === 0) rollCoopTarget(s); // setzt holdT/locked zurueck
+      return null;
+    }
+    const measure = coopMeasure(s);
+    if (measure.inBand) {
+      s.holdT += dtSeconds;
+      if (s.holdT >= HOLD_SEC) {
+        // Eingerastet: Station stabil, sichtbare Pause, dann frisches Ziel.
+        s.stability = 1;
+        refreshStatus(s);
+        s.locked = true;
+        s.lockPause = RELOCK_PAUSE_SEC;
+        const crew = [s.operatorId, coopPartnerId(s)].filter(Boolean);
+        return crew;
+      }
+    } else {
+      s.holdT = 0;
+    }
+    return null;
   }
 
   // Sicht der Bots auf eine Koop-Station (eigener Regler, Partnerwert, Naehe).
@@ -299,7 +308,6 @@ export function createGame(config) {
       my: isOp ? s.paramA : s.paramB,
       partner: isOp ? s.paramB : s.paramA,
       inBand: measure.inBand,
-      myConfirmed: isOp ? s.confirmA : s.confirmB,
     };
   }
 
@@ -353,7 +361,7 @@ export function createGame(config) {
       adapt(p);
     } else if (s && !s.coop && phase === PHASES.RUNNING) {
       // Fehlversuch im laufenden Einsatz kostet ein Stueck Stabilitaet, damit
-      // blindes Probieren teuer wird (Koop-Stationen laufen ueber coopConfirm).
+      // blindes Probieren teuer wird (Koop-Stationen rasten ueber die Haltezeit ein).
       s.stability = Math.max(0, s.stability - WRONG_SOLVE_PENALTY);
       refreshStatus(s);
     }
@@ -467,7 +475,7 @@ export function createGame(config) {
     now += dtSeconds;
     // Nur das laufende Spiel wird simuliert. In der Lobby und nach Sieg/Niederlage
     // laeuft nur die Uhr weiter (fuer die adaptive Schwierigkeit).
-    if (phase !== PHASES.RUNNING) return { rotated: false };
+    if (phase !== PHASES.RUNNING) return { rotated: false, coopLocks: [] };
 
     // Statusverfall: eine stabile Station faellt ohne neue Loesung auf "achtung".
     // Waehrend der Schonzeit haelt die Stabilitaet; der Status wird nur aufgefrischt.
@@ -476,6 +484,16 @@ export function createGame(config) {
         s.stability = Math.max(0, s.stability - STABLE_DECAY_PER_SEC * dtSeconds);
       }
       refreshStatus(s);
+    }
+
+    // Reaktor (Koop-Stationen): Hold-to-Lock vorantreiben. Laeuft auch in der
+    // Schonzeit und im Sandbox-Teststand, damit man jederzeit kalibrieren kann.
+    // Sammelt die Crews, die gerade eingerastet sind, fuer die Rueckmeldung (RESULT).
+    const coopLocks = [];
+    for (const s of stations) {
+      if (!s.coop) continue;
+      const crew = advanceCoop(s, dtSeconds);
+      if (crew) coopLocks.push({ stationId: s.id, participants: crew });
     }
 
     // Leerlauf und Vernachlaessigung kosten Huelle: unbesetzt am staerksten,
@@ -505,13 +523,13 @@ export function createGame(config) {
     // Fortschritt und kein Sektorwechsel, damit eine einzelne Teststation nicht
     // wegrotiert oder gewinnt. Status- und Energieverlauf laufen weiter, damit das
     // Mini-Spiel sich echt anfuehlt (Stabilitaet faellt, Reaktor speist die Energie).
-    if (sandbox) return { rotated: false };
+    if (sandbox) return { rotated: false, coopLocks };
 
     // Niederlage: leere Huelle beendet den Durchlauf.
     if (shared.huelle <= 0) {
       shared.huelle = 0;
       phase = PHASES.LOST;
-      return { rotated: false };
+      return { rotated: false, coopLocks };
     }
 
     // Kopplung: Fortschritt steigt nur, wenn die Mehrheit der besetzten
@@ -538,7 +556,7 @@ export function createGame(config) {
         rotated = true;
       }
     }
-    return { rotated };
+    return { rotated, coopLocks };
   }
 
   const labelOf = (id) => (id && participants.get(id) ? participants.get(id).label : null);
@@ -547,7 +565,15 @@ export function createGame(config) {
   // Bewusst ohne die Einzel-Reglerwerte, damit der Informationsspalt bestehen bleibt.
   function coopHostView(s) {
     const m = coopMeasure(s);
-    return { target: s.coopTask ? s.coopTask.targetX : 0, unit: "Ω", actual: m.actual, match: m.teiltreffer, inBand: m.inBand };
+    return {
+      target: s.coopTask ? s.coopTask.targetX : 0,
+      unit: "Ω",
+      actual: m.actual,
+      match: m.teiltreffer,
+      inBand: m.inBand,
+      hold: Math.min(1, s.holdT / HOLD_SEC), // Fortschritt des Einrastens 0..1
+      locked: s.locked || s.lockPause > 0, // gerade eingerastet (inkl. sichtbarer Pause)
+    };
   }
 
   // Sicht eines Teilnehmers auf die Koop-Station: nur der eigene Reglerwert, dazu
@@ -571,8 +597,8 @@ export function createGame(config) {
       match: m.teiltreffer,
       inBand: m.inBand,
       myValue,
-      myConfirmed: isOp ? s.confirmA : isPartner ? s.confirmB : false,
-      partnerConfirmed: partnerId ? (isOp ? s.confirmB : s.confirmA) : false,
+      hold: Math.min(1, s.holdT / HOLD_SEC), // Fortschritt des Einrastens 0..1 (fuellt den Ring)
+      locked: s.locked || s.lockPause > 0, // gerade eingerastet (inkl. sichtbarer Pause)
     };
   }
 
@@ -632,7 +658,6 @@ export function createGame(config) {
     assignmentOf,
     solve,
     setCoopInput,
-    coopConfirm,
     coopInfo,
     setBaseLevel,
     startGame,

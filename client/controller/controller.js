@@ -176,9 +176,9 @@ function mountGame() {
     station: stationName,
     role,
     submit: (input) => net.send(C2S.SOLVE_ATTEMPT, { input }),
-    // Koop-Station: stufenlose Eingabe und gemeinsame Bestaetigung.
+    // Koop-Station (Reaktor): stufenlose Reglereingabe. Das Einrasten entscheidet
+    // der Server ueber die Haltezeit (Hold-to-Lock), keine Bestaetigung noetig.
     coopInput: (param, value) => net.send(C2S.COOP_INPUT, { param, value }),
-    coopConfirm: () => net.send(C2S.COOP_CONFIRM),
   };
   current = mod.mount(root, task, ctx) || null;
   // Direkt mit dem letzten bekannten Zustand versorgen (Koop: Ziel/Match/Solo).

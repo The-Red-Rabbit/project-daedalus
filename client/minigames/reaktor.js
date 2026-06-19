@@ -2,14 +2,15 @@
 // kalibrieren gemeinsam eine kapazitive Reaktanz Xc = 1 / (2*pi*f*C) auf einen
 // Zielwert. Der Operator stellt die Kapazitaet C, der Co-Pilot die Frequenz f.
 // Niemand sieht den Wert der anderen Person, beide sehen Ziel und Naehe (Match) –
-// dieser Informationsspalt zwingt zum Reden. Beide muessen bei passendem Wert
-// bestaetigen, dann rastet die Kalibrierung ein.
+// dieser Informationsspalt zwingt zum Reden. Es gibt keine Bestaetigung mehr:
+// halten beide den kombinierten Wert kurz im Zielband, rastet die Kalibrierung von
+// selbst ein (Hold-to-Lock, nach dem Vorbild des SOS-Schiebers).
 //
 // Anders als die Einzelspiele haelt den eigentlichen Zustand der Server (beide
-// Reglerwerte je Station). generate/validate/solve/solveFor bleiben DOM-frei,
-// damit der Server die Reaktanz autoritativ nachrechnen kann; nur mount nutzt das
-// Document. Die Regler liefern eine normierte Position 0..1, die generate-Bereiche
-// bilden sie auf C bzw. f ab.
+// Reglerwerte je Station, dazu die Haltezeit). generate/validate/solve/solveFor
+// bleiben DOM-frei, damit der Server die Reaktanz autoritativ nachrechnen kann;
+// nur mount nutzt das Document. Die Regler liefern eine normierte Position 0..1,
+// die generate-Bereiche bilden sie auf C bzw. f ab.
 
 import { pick } from "../../shared/rng.js";
 
@@ -47,8 +48,10 @@ export default {
 
   generate(level, rng) {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;
-    // Stufe steuert die Toleranz: enger wird es schwerer.
-    const tolerance = lvl === 1 ? 0.12 : lvl === 2 ? 0.08 : 0.05;
+    // Stufe steuert die Toleranz: enger wird es schwerer. Bewusst grosszuegig, damit
+    // blinde Koordination ueber Reden und Peilton ohne Kopfrechnen gelingt
+    // (Stufe 1 klar weit, Stufe 3 eng, aber fair).
+    const tolerance = lvl === 1 ? 0.16 : lvl === 2 ? 0.11 : 0.07;
     const targetX = pick(rng, TARGETS);
     return {
       prompt: "Kalibriert gemeinsam die Reaktanz auf den Zielwert. Sprecht euch ab – jede Person sieht nur den eigenen Regler.",
@@ -63,8 +66,9 @@ export default {
   },
 
   // Prueft die beiden Reglerpositionen gegen das Ziel. Liefert die Naehe (match),
-  // ob im Zielband, und den Istwert. Der Server entscheidet ueber "geloest" erst
-  // mit den Bestaetigungen beider Seiten; instantan gilt geloest = inBand.
+  // ob im Zielband, und den Istwert. Ob die Station einrastet, entscheidet der
+  // Server ueber die gehaltene Zeit im Band (Hold-to-Lock); instantan gilt
+  // geloest = inBand.
   validate(task, input) {
     const a = Number(input && input.a);
     const b = Number(input && input.b);
@@ -122,16 +126,22 @@ export default {
     let beepTimer = null;
     let stopped = false;
     let lastMatch = 0;
+    let wasLocked = false;
+
+    // Match-Wert, ab dem das Zielband beginnt (rechtes, nahes Ende der Leiste).
+    // Der untere Bandrand liegt im Log-Abstand weiter weg, daher zaehlt 1-tol.
+    const bandEdge = clamp01(1 + Math.log10(1 - task.tolerance));
 
     root.innerHTML =
       `<h1 class="title">Reaktor</h1>` +
       `<div class="bc-scenario"><span class="bc-label">Auftrag</span>${task.prompt}</div>` +
       `<div class="rk-target">Ziel-Reaktanz <b class="rk-target-val">${formatOhm(task.targetX)}</b></div>` +
+      `<div class="rk-state">Justieren …</div>` +
       `<div class="rk-match"><div class="rk-match-fill"></div><div class="rk-band"></div></div>` +
-      `<div class="rk-readout"><span class="rk-state">Justieren …</span><span class="rk-partner"></span></div>` +
+      `<div class="rk-lock"><div class="rk-lock-ring"><div class="rk-lock-core">halten</div></div></div>` +
       `<div class="rk-controls"></div>` +
-      `<button class="bc-confirm rk-confirm">Bestätigen</button>` +
-      `<div class="bc-hint rk-hint">Sprecht euch ab und bestätigt beide bei passendem Wert.</div>`;
+      `<div class="rk-partner"></div>` +
+      `<div class="bc-hint rk-hint">Sprecht euch ab und haltet die Reaktanz im Zielband, bis sie einrastet.</div>`;
 
     const targetEl = root.querySelector(".rk-target-val");
     const fill = root.querySelector(".rk-match-fill");
@@ -139,11 +149,13 @@ export default {
     const stateEl = root.querySelector(".rk-state");
     const partnerEl = root.querySelector(".rk-partner");
     const controls = root.querySelector(".rk-controls");
-    const confirmEl = root.querySelector(".rk-confirm");
+    const ringEl = root.querySelector(".rk-lock-ring");
+    const coreEl = root.querySelector(".rk-lock-core");
     const hintEl = root.querySelector(".rk-hint");
 
-    // Toleranzband als heller Streifen am rechten Ende der Match-Leiste.
-    bandEl.style.width = `${Math.min(40, task.tolerance * 220)}%`;
+    // Zielband als heller Bereich am rechten (nahen) Ende der Match-Leiste, mit
+    // gestrichelter Kante als klarer Marker, wo das Band beginnt.
+    bandEl.style.left = `${(bandEdge * 100).toFixed(1)}%`;
 
     // Reglerzeile: grosser Schieber, Wertanzeige, Bauteilname.
     function makeSlider(param, label, fmt) {
@@ -161,10 +173,6 @@ export default {
         valEl.textContent = fmt(param === "a" ? mapLog(v, task.cMin, task.cMax) : mapLog(v, task.fMin, task.fMax));
         ctx.audio.play("ui.toggle");
         ctx.coopInput(param, v);
-        // Eingabe loescht die eigene Bestaetigung – das spiegelt der Server zurueck.
-        confirmEl.disabled = false;
-        confirmEl.textContent = "Bestätigen";
-        confirmEl.classList.remove("armed");
       });
       controls.appendChild(row);
       return { row, range, valEl };
@@ -180,14 +188,6 @@ export default {
     }
     applyVisibility();
 
-    confirmEl.addEventListener("click", () => {
-      ctx.audio.play("ui.confirm");
-      ctx.coopConfirm();
-      confirmEl.disabled = true;
-      confirmEl.textContent = "Bereit ✓";
-      confirmEl.classList.add("armed");
-    });
-
     // Wiederkehrender Peilton: je naeher am Ziel, desto dichter die Folge. Der
     // Loop laeuft selbststaendig weiter und liest jeweils den aktuellen Match
     // (onState setzt nur lastMatch, taktet den Ton aber nicht zurueck).
@@ -202,8 +202,17 @@ export default {
     }
     beepLoop();
 
-    // Lebende Werte kommen aus dem Server-Zustand (Match haengt am verborgenen
-    // Partnerwert, deshalb rechnet der Client ihn nicht selbst).
+    // Einrast-Ring: fuellt sich, solange im Band gehalten wird (0..1), und schlaegt
+    // beim Einrasten auf das stabile Gruen um.
+    function setRing(hold, locked) {
+      const deg = Math.round(clamp01(hold) * 360);
+      const color = locked ? "var(--status-stable)" : "var(--accent-cyan)";
+      ringEl.style.background = `conic-gradient(${color} ${deg}deg, var(--bg-panel-2) ${deg}deg)`;
+      ringEl.classList.toggle("locked", !!locked);
+    }
+
+    // Lebende Werte kommen aus dem Server-Zustand (Match und Haltezeit haengen am
+    // verborgenen Partnerwert, deshalb rechnet der Client sie nicht selbst).
     function onState(state) {
       const co = state && state.coop;
       if (!co) return;
@@ -215,21 +224,36 @@ export default {
       const pct = Math.round(co.match * 100);
       fill.style.width = `${pct}%`;
       fill.style.background = co.inBand ? "var(--status-stable)" : pct > 60 ? "var(--accent-yellow)" : "var(--accent-cyan)";
-      stateEl.textContent = co.inBand ? "Im Zielband – bestätigen!" : co.actual > co.target ? "Reaktanz zu hoch" : "Reaktanz zu niedrig";
-      stateEl.style.color = co.inBand ? "var(--status-stable)" : "var(--text-muted)";
-      // Partner-Bereitschaft (nicht der Wert) anzeigen.
-      if (co.solo) partnerEl.textContent = "Solo-Betrieb";
-      else if (!co.partnerPresent) partnerEl.textContent = "Partner fehlt";
-      else partnerEl.textContent = co.partnerConfirmed ? "Partner: bereit ✓" : "Partner: justiert …";
-      partnerEl.style.color = co.partnerConfirmed ? "var(--status-stable)" : "var(--text-muted)";
-      // Eigene Bestaetigung vom Server gespiegelt (z. B. nach Reglerbewegung geloescht).
-      if (!co.myConfirmed) {
-        confirmEl.disabled = false;
-        if (confirmEl.classList.contains("armed")) {
-          confirmEl.textContent = "Bestätigen";
-          confirmEl.classList.remove("armed");
-        }
+
+      const locked = !!co.locked;
+      if (locked) {
+        stateEl.textContent = "Kalibriert ✓";
+        stateEl.style.color = "var(--status-stable)";
+      } else if (co.inBand) {
+        stateEl.textContent = "Im Zielband – halten!";
+        stateEl.style.color = "var(--status-stable)";
+      } else if (co.actual > co.target) {
+        stateEl.textContent = "Reaktanz zu hoch";
+        stateEl.style.color = "var(--accent-yellow)";
+      } else {
+        stateEl.textContent = "Reaktanz zu niedrig";
+        stateEl.style.color = "var(--accent-yellow)";
       }
+
+      const hold = locked ? 1 : co.hold || 0;
+      setRing(hold, locked);
+      coreEl.textContent = locked ? "rastet" : co.inBand ? "halten …" : "Band suchen";
+
+      // Ton genau im Moment des Einrastens (schwerer Verschluss).
+      if (locked && !wasLocked) ctx.audio.play("ui.confirm");
+      wasLocked = locked;
+
+      // Partner-Anwesenheit anzeigen (nicht den Wert – der Spalt bleibt).
+      if (co.solo) partnerEl.textContent = "Solo-Betrieb";
+      else if (!co.partnerPresent) partnerEl.textContent = "Partner fehlt …";
+      else partnerEl.textContent = "Partner verbunden";
+      partnerEl.style.color = !co.solo && co.partnerPresent ? "var(--status-stable)" : "var(--text-muted)";
+
       lastMatch = co.match;
     }
 
@@ -237,9 +261,6 @@ export default {
       onState,
       onResult(res) {
         hintEl.textContent = res.hinweis || hintEl.textContent;
-        confirmEl.disabled = false;
-        confirmEl.textContent = "Bestätigen";
-        confirmEl.classList.remove("armed");
       },
       unmount() {
         stopped = true;

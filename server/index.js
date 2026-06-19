@@ -184,26 +184,12 @@ wss.on("connection", (ws) => {
     }
 
     // Koop-Station (Reaktor): stufenlose Reglereingabe. Der Server prueft die
-    // Berechtigung; die Wirkung wird ueber den naechsten state sichtbar.
+    // Berechtigung; die Wirkung wird ueber den naechsten state sichtbar. Das
+    // Einrasten entscheidet der Server ueber die Haltezeit im Tick (Hold-to-Lock).
     if (msg.type === C2S.COOP_INPUT) {
       const pid = controllers.get(ws);
       if (!pid) return;
       game.setCoopInput(pid, msg.param, msg.value);
-      return;
-    }
-
-    // Koop-Station: Bestaetigung. Haben beide Seiten bestaetigt, wertet der Server
-    // aus und meldet beiden das Ergebnis. Das neue Ziel kommt ueber den state.
-    if (msg.type === C2S.COOP_CONFIRM) {
-      const pid = controllers.get(ws);
-      if (!pid) return;
-      const out = game.coopConfirm(pid);
-      if (out && out.evaluated) {
-        for (const id of out.participants) {
-          const w = wsOf(id);
-          if (w) send(w, S2C.RESULT, { geloest: out.geloest, teiltreffer: out.geloest ? 1 : 0, hinweis: out.geloest ? "Reaktor kalibriert." : "Daneben – neu absprechen." });
-        }
-      }
       return;
     }
 
@@ -291,7 +277,7 @@ wss.on("connection", (ws) => {
 // Spieltakt: Werte aktualisieren und Zustand verteilen.
 const dt = 1 / TICK_HZ;
 setInterval(() => {
-  const { rotated } = game.tick(dt);
+  const { rotated, coopLocks } = game.tick(dt);
   // Sektorwechsel: auch die Bots bekommen wie die Controller neue Aufgaben.
   if (rotated && bots) bots.reseat();
   // Bots loesen nach dem Tick und vor dem Versand, damit ihr Stand sofort sichtbar ist.
@@ -299,6 +285,17 @@ setInterval(() => {
   const hostState = game.hostState();
   for (const ws of hosts) send(ws, S2C.STATE, hostState);
   for (const [ws, pid] of controllers) send(ws, S2C.STATE, game.participantState(pid));
+  // Reaktor eingerastet (Hold-to-Lock): den beteiligten Controllern eine
+  // Erfolgsrueckmeldung schicken (loest Ton und onResult im Mini-Spiel aus).
+  // Bots sind nicht in der Controller-Liste, sie werden dabei uebersprungen.
+  if (coopLocks && coopLocks.length) {
+    for (const lock of coopLocks) {
+      for (const id of lock.participants) {
+        const w = wsOf(id);
+        if (w) send(w, S2C.RESULT, { geloest: true, teiltreffer: 1, hinweis: "Reaktor kalibriert." });
+      }
+    }
+  }
   // Sektorwechsel: Rollen rotieren, alle bekommen neue Sitzordnung und Aufgabe.
   if (rotated) {
     broadcast(S2C.EVENT, { kind: "rotate", sector: hostState.sector });
