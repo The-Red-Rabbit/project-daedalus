@@ -18,7 +18,8 @@ test("generate: Stufe steuert Bitbreite und Quellsystem", () => {
   assert.equal(build(1, 5).bits, 4);
   assert.equal(build(2, 5).bits, 8);
   assert.equal(build(3, 5).bits, 8);
-  assert.equal(build(1, 5).displayBase, 10);
+  assert.equal(build(1, 5).displayBase, 10); // Stufe 1 dezimal
+  assert.equal(build(2, 5).displayBase, 16); // ab Stufe 2 hexadezimal
   assert.equal(build(3, 5).displayBase, 16);
 });
 

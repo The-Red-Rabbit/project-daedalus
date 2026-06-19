@@ -56,8 +56,8 @@ project-daedalus/
       registry.js           Mini-Spiele anmelden und nachschlagen
       _template.js          Vorlage für ein neues Mini-Spiel
       bordcomputer.js       logische Schaltung aus Gattern bauen (Themenfeld 3)
-      tiefpassfilter.js     RC-Tiefpass, Grenzfrequenz treffen (Themenfeld 2)
-      zahlensysteme.js      Dualsystem über Bit-Schalter (Themenfeld 3)
+      tiefpassfilter.js     RC-Tiefpass, Kapazität aus zwei Bauteilen bauen (Themenfeld 2)
+      zahlensysteme.js      Dualsystem über Bit-Schalter, ohne Live-Dezimalanzeige (Themenfeld 3)
       reaktor.js            kooperative Reaktanz-Kalibrierung zu zweit (Themenfeld 2)
     styles/
       tokens.css            Designtokens der Grimdark-Palette
@@ -197,7 +197,7 @@ Starter unter `/host` öffnen (verlinkt Brücke und Leitstand), die Brücke unte
 
 ## Aufgaben für Claude Code
 
-Das Spiel ist klassenfertig (Stand 18.06.2026). Lauffähig sind: Server mit autoritativer Logik und Phasen, die Brücke (`/beamer`) mit First-Person-Cockpitszene, HUD, Reaktor-Anzeige und Wartelobby samt großem Beitritts-QR, der Leitstand (`/dashboard`) mit Steuerung und Live-Monitor, der Controller mit Beitritt, Wartelobby und Rollenanzeige, vier voll spielbare Mini-Spiele (Bordcomputer als Schaltungsbau, Themenfeld 3; Tiefpassfilter auf der Station Sensorik, Themenfeld 2; Zahlensysteme auf der Station Navigation, Themenfeld 3; Reaktor als kooperative Station zu zweit, Themenfeld 2), die geschichtete Audio-Engine und die Designtokens.
+Das Spiel ist klassenfertig (Stand 18.06.2026). Lauffähig sind: Server mit autoritativer Logik und Phasen, die Brücke (`/beamer`) mit First-Person-Cockpitszene, HUD, Reaktor-Anzeige und Wartelobby samt großem Beitritts-QR, der Leitstand (`/dashboard`) mit Steuerung und Live-Monitor, der Controller mit Beitritt, Wartelobby und Rollenanzeige, vier voll spielbare Mini-Spiele (Bordcomputer als Schaltungsbau, Themenfeld 3; Tiefpassfilter auf der Station Sensorik mit Kapazität aus zwei Bauteilen, Themenfeld 2; Zahlensysteme auf der Station Navigation ohne Live-Dezimalanzeige und ab Stufe 2 hexadezimal, Themenfeld 3; Reaktor als kooperative Station zu zweit, Themenfeld 2), die geschichtete Audio-Engine und die Designtokens. Die drei Einzelspiele belohnen Verständnis statt Probieren: Rückmeldung erst nach dem Bestätigen, ein Fehlversuch kostet Stabilität.
 
 Der Spielablauf: Erst sammelt sich die Crew in der Lobby (Smartphones scannen den QR, geben einen Namen ein), dann startet die Lehrkraft am Leitstand das Spiel. Der Server setzt jede Person als Operator einer Station oder als Co-Pilot ein. Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor und rotiert die Rollen; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus, setzt die Grundschwierigkeit und holt die Crew mit „Zurück zur Lobby“ für einen neuen Anlauf zurück.
 

@@ -6,7 +6,7 @@ Reihenfolge: T1 bis T4 und T6 bilden das MVP. T5 ist ein späterer Schritt. Jede
 
 Stand 17.06.2026: Alle Tickets sind umgesetzt. T1, T2, T3, T4, T5 und T6 sind erledigt und durch automatische Tests sowie Durchlaeufe mit mehreren Controllern (Sieg- und Niederlage-Pfad) belegt. Zusaetzlich gibt es ein drittes Mini-Spiel (Zahlensysteme, Station Navigation) und einen Qualitaetsschliff bei Bild und Ton.
 
-Stand 18.06.2026 (Runde 2): Phase 1, 2 und 3 sind erledigt (siehe unten „Runde 2“). Debug-Bots fuers Solo-Testen, eine ruhigere Taktung, die kooperative Reaktor-Station und der Umbau des Bordcomputers zum Schaltungsbau sind umgesetzt und durch Tests (63 gruen) sowie Komplettdurchlaeufe mit Bots belegt.
+Stand 18.06.2026 (Runde 2): Phase 1 bis 4 sind erledigt (siehe unten „Runde 2“). Debug-Bots fuers Solo-Testen, eine ruhigere Taktung, die kooperative Reaktor-Station, der Umbau des Bordcomputers zum Schaltungsbau und die Vertiefung von Tiefpass und Zahlensysteme sind umgesetzt und durch Tests (64 gruen) sowie Komplettdurchlaeufe mit Bots belegt.
 
 ## T1: Sichtbarer QR-Code auf der Host-Seite (erledigt)
 
@@ -124,9 +124,21 @@ Architektur: `generate`/`validate`/`solve` bleiben DOM-frei; die Aufgabe beschre
 
 Fertig, wenn: Eine korrekte Lösung verlangt das Nachdenken über die Tabelle, blindes Probieren ist langsam und teuer, die Tests sind grün und der Spielablauf läuft ohne Regression. Belegt durch `npm test` (63 Tests grün) und einen Live-Durchlauf mit sechs Bots (Bordcomputer wird gebaut und stabil, Sieg über drei Sektoren, Fehlversuche senken sichtbar die Stabilität).
 
-### Runde 2 · Phase 4 und folgende
+### Runde 2 · Phase 4: Tiefpass und Zahlensysteme vertiefen (erledigt)
 
-Noch offen, bewusst erst nach Sichtung von Phase 3 und nur bei genügend Zeit vor dem Test: Vertiefung von Tiefpass und Zahlensysteme (Phase 4), Backlog (Phase 5). Details in `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`.
+Ziel: Auch die beiden übrigen Einzelspiele belohnen Verständnis statt Probieren, mit verzögerter Rückmeldung und mehr Konstruktion.
+
+Tiefpassfilter (Felix' Wahl: Kapazität aus zwei Bauteilen): Statt ein C zu wählen, baut man die Kapazität aus zwei Kondensatoren in Reihe oder parallel (`C_reihe = C1·C2/(C1+C2)`, `C_parallel = C1+C2`) und trifft damit die Grenzfrequenz `f_c = 1/(2·π·R·C)`. R bleibt fest in Stufe 1, ab Stufe 2 wählbar. Die Live-Kurve bleibt als Bediengefühl, das Toleranzband und das Urteil erscheinen erst nach dem Bestätigen. Diskrete Bauteilreihen halten die Ziele exakt erreichbar.
+
+Zahlensysteme (Felix' Wahl: ohne Live-Dezimalanzeige, Hex ab Stufe 2): Die mitlaufende Dezimalanzeige verschwindet – man rechnet den Zielcode selbst in Bits um, die Prüfung kommt erst nach dem Bestätigen. Das Ziel steht ab Stufe 2 hexadezimal. Die Bit-Schalter und die angeschriebenen Gewichte bleiben.
+
+Architektur: `generate`/`validate`/`solve` bleiben DOM-frei; der Server validiert autoritativ aus dem Seed. Die Aufgabe des Tiefpassfilters trägt jetzt `c1`/`c2`/`mode`; `solve` durchsucht die erreichbaren Kombinationen. Ein Fehlversuch kostet weiterhin Stabilität (`WRONG_SOLVE_PENALTY` aus Phase 3, allgemeiner solve-Pfad). `test/tiefpassfilter.test.js` ist auf die neue Mechanik umgestellt (mit unabhängiger Reihen-/Parallel-Kontrolle), `test/zahlensysteme.test.js` um das Hex-ab-Stufe-2-Verhalten ergänzt.
+
+Fertig, wenn: Beide Mini-Spiele belohnen Verständnis, die Tests sind grün und der Spielablauf läuft ohne Regression. Belegt durch `npm test` (64 Tests grün) und einen Live-Durchlauf mit acht Bots (Sensorik und Navigation werden gelöst und stabil, Sieg über drei Sektoren).
+
+### Runde 2 · Phase 5: Backlog für nach dem Test
+
+Bewusst aufgeschoben, nicht vor dem Klassentest: dekoratives Bediengefühl als Politur (Panel aufschrauben, Schalter umlegen, Ventile als Ritual), weitere Stationen aus `docs/GAME_DESIGN.md` (Antrieb, Schilde), mehrere Räume statt eines einzigen Spiels, einfache Datenerfassung für die Reflexion, echte Assets in den Slots (Sprites und Sounddateien je Cue, im Manifest eingetragen). Details in `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`.
 
 ## Designhinweise für alle Tickets
 

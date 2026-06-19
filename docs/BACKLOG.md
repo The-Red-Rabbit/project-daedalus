@@ -13,4 +13,8 @@ Possible fix: Have a handbook where the player can look up tips (maybe have a ph
 - Debug-mode makes testing individual minigames possible.
 - More interesting visuals.
 - Physical crew handbook.
-- Incooperate more need for players to
+- Incooperate more need for players to look to the beamer and talk to eachother
+
+# Castle in the Clouds
+- Special role with gamepad support
+- Physical buttons (arduino)

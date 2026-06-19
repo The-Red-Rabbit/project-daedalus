@@ -1,31 +1,45 @@
-# Claude Code prompts: Round 2 (further development)
+# Claude Code prompts: Daedalus development rounds
 
-This file drives the second work round on Daedalus. It is phased. Give Phase 1 first, let Claude Code finish and summarize, review the result, then give the next phase. Each phase ends with a deliberate stop so you stay in control and the context stays small.
+This file drives the iterative work on Daedalus. It is phased. Give one phase, let Claude Code finish and summarize, review the result, then give the next phase. Each phase ends with a deliberate stop so you stay in control and the context stays small.
 
-The prompts assume Claude Code runs inside the `project-daedalus` repository and knows the current state (server with authoritative logic, beamer, Leitstand, controller, three mini-games, audio engine, design tokens). `CLAUDE.md` and `docs/VISUAL_DESIGN.md` remain binding.
+The prompts assume Claude Code runs inside the `project-daedalus` repository. `CLAUDE.md` and `docs/VISUAL_DESIGN.md` remain binding.
 
 ## How to run this with Claude Code
 
-Do not paste a single block in isolation, otherwise the surrounding context is missing. Instead let Claude Code read this file, since it lives in the repo. To start, tell Claude Code:
+Do not paste a single block in isolation, otherwise the surrounding context is missing. Let Claude Code read this file, since it lives in the repo. To start a phase, tell Claude Code:
 
-> Read docs/CLAUDE_CODE_PROMPTS_RUNDE2.md in full. Follow the guardrails and the agreed design decisions. Now work through Phase 1 and stop afterward with a summary.
+> Read docs/CLAUDE_CODE_PROMPTS_RUNDE2.md in full. Follow the guardrails and the agreed design decisions. Now work through Phase 4 and stop afterward with a summary.
 
-That pulls the guardrails, the decisions, and the phase text into context in one go. Claude Code also reads `CLAUDE.md` on startup, where most conventions already live. For the next phase say the same with Phase 2. If a phase ran long and context feels full, start a fresh session and say: read this file plus the latest git log, then do Phase 2.
+That pulls the guardrails, the decisions, and the phase text into context in one go. Claude Code also reads `CLAUDE.md` on startup. For the next phase say the same with the next number. If a phase ran long and context feels full, start a fresh session and say: read this file plus the latest git log, then do the phase.
+
+## Status
+
+- Round 2 (Phases 1 to 3) is implemented: debug bots and pacing relief, the cooperative Reaktor station, and a first construction rebuild of the Bordcomputer. The detail lives in git history.
+- The prototype was tested with a class after Phase 2. The feedback drives Round 3 below.
+
+Classroom feedback, condensed:
+- The sector transition is confusing and too fast.
+- The whole game and each station need a short how-to.
+- The Reaktor station is confusing and feels broken (it passes all tests, the pain is the win flow).
+- The Bordcomputer is still brute-forceable.
+- Hexadecimal in Zahlensysteme is too hard.
+- A way to test a single mini-game directly is badly missing, instead of waiting to rotate onto it.
 
 ## Agreed design decisions (context for every phase)
 
 These points are settled and should not be reopened:
 
-1. Lean, simple core first. The goal is a classroom-ready build within a few days. Everything else goes on the backlog.
-2. The loop that feels stressful is eased first through pacing, not through a rebuild of the control logic.
-3. One single new cooperative station (Reaktor), modeled on a proven classroom game. It covers cooperation, a reason to look at the beamer, and tactile control feel in one.
-4. Tactile here means control feel: continuous, physical controls with live feedback. Decorative friction like unscrewing panels or switch rituals stays out for now.
-5. The mini-games must not be solvable by clicking through. The Bordcomputer is rebuilt toward construction; Tiefpass and Zahlensysteme follow in a separate, later phase.
-6. The debug mode for solo testing runs through server-side simulated players (bots).
+1. Lean, simple core first. The goal is a classroom-ready build. Everything else goes on the backlog.
+2. Tactile means control feel: continuous, physical controls with live feedback. Decorative friction like unscrewing panels stays out for now.
+3. The mini-game test harness comes first in Round 3. It seats you directly on a chosen station and adds a bot partner for the cooperative station, so it tests the real server and coop path.
+4. The Reaktor win flow drops the dual confirm and locks automatically when the pair holds the value inside the target band, modeled on the SOS slider feel.
+5. Onboarding is short text for now: a how-to card per station plus a brief game intro. An animated cutscene stays on the backlog.
+6. When the Bordcomputer is hardened, the approach is a real lockout after a wrong commit plus removing the per-row hint, keeping the build-to-match-table structure.
+7. When Zahlensysteme is eased, the approach is a live hex readout plus grouping the bits into nibbles.
 
 ## The testable line
 
-After Phase 2 the game is classroom-ready. Phases 1 and 2 together form a rounded cooperative core you can trial with the class. Phase 3 sharpens the didactics. Phase 4 is the deferred safety net for the wish to lift all mini-games to construction. If time runs short before the test, drop Phase 4 without harming the core. Phase 5 is pure backlog for after the test.
+Round 3 reaches a re-testable build after Phase 6. Phases 4 to 6 together fix the most painful classroom feedback. Phases 7 and 8 harden the two single-player mini-games and can follow after the next class test if time is short. The backlog at the end is for later.
 
 ## Guardrails (apply to every phase)
 
@@ -39,124 +53,111 @@ After Phase 2 the game is classroom-ready. Phases 1 and 2 together form a rounde
 
 ---
 
-## Phase 1: Debug bots and pacing relief
+## Phase 4: Mini-game test harness (do this first)
 
 ```text
-You are working in the project-daedalus repository. First read CLAUDE.md, server/game.js, server/index.js, and shared/protocol.js so you know role assignment, the tick, and the protocol. This phase has two goals: a tool for solo testing and a calmer pacing. No new game content.
+You are working in the project-daedalus repository. First read CLAUDE.md, server/index.js, server/game.js, server/bots.js, shared/protocol.js, and client/controller/controller.js so you know the join flow, role placement, the debug bots, and how a mini-game mounts. Goal of this phase: a fast way to test a single mini-game alone, without playing through the lobby and waiting to rotate onto a station.
 
-Part A, simulated players (bots) for solo testing.
-
-Goal: You can observe the whole loop alone, without several real smartphones. The server creates simulated participants that join through the real join and solve path and solve their tasks automatically.
+Goal: From a debug-only entry you can open any single mini-game at any level within seconds. For the cooperative Reaktor station, a bot partner is added automatically so you can test the coop path alone.
 
 Approach:
-- Bots run server-side, not as real WebSocket clients. Add them through the same addParticipant logic so roles, rotation, and coupling are identical to the real game.
-- Each bot solves its current task after a configurable, slightly randomized delay, mostly correctly and occasionally wrong, so the status decay becomes visible. Use the existing solve logic with the real seed. Do not add a special path for evaluation.
-- Control by the host only (Leitstand): set count, spawn bots, remove bots. Add a debug message in shared/protocol.js that the server accepts only from the host.
-- Bots visible in the roster and clearly marked as bots (for example through a name prefix) so you can tell them from real players.
-- Add a visually separated debug area in the Leitstand, clearly recognizable as a developer tool. Gate the feature behind an environment variable so it does not appear accidentally in class.
+- Add a debug-only path that seats a controller directly on a chosen station at a chosen level, bypassing the normal lobby and rotation. The game enters the running phase for that test so the mini-game actually mounts.
+- Reuse the existing debug infrastructure. Gate everything behind the DAEDALUS_DEBUG environment variable, the same gate the bots already use, so nothing can appear in class by accident.
+- For a station with coop: true (the Reaktor), automatically spawn one bot as the partner via server/bots.js, so the shared state and the match readout work with a single human tester.
+- Provide a convenient entry. Ask me via AskUserQuestion which you should build: a dedicated /dev page that lists every station with level buttons, or a query parameter on the controller such as a station and level. Recommend the /dev page, since clicking a station opens a controller already seated there.
+- Keep the normal game untouched. The harness is an additional path, not a change to the lobby or rotation logic.
 
-Acceptance Part A: You open beamer and Leitstand alone, spawn about six bots, start the mission, and see a full sector with progress, role rotation, and a win or loss ending, without opening further tabs.
+Acceptance: With DAEDALUS_DEBUG on, you open the debug entry, pick a station and level, and the mini-game mounts at once. Picking the Reaktor seats you with an automatic bot partner so the match readout moves. Without the debug flag the entry does not exist.
 
-Part B, ease the pacing.
-
-Goal: The loop should feel less frantic. Less constant pressure, noticeable breathing room.
-
-Approach:
-- Make the decay gentler. Lower STABLE_DECAY_PER_SEC so a station stays stable longer after solving (guideline around 15 to 20 seconds instead of the current eight). Lower HULL_DRAIN_WARN and HULL_DRAIN_CRITICAL so brief neglect is not punished hard immediately.
-- Add a calm approach phase per sector. Right after the start and after every sector change, a few seconds without decay and without hull loss, in which the crew arrives. Optionally a short hint on the beamer.
-- Do not set the concrete numbers alone. Ask me via AskUserQuestion for the desired feel (relaxed, medium, or demanding) and derive the values from that. Keep all tuning values bundled at the top of server/game.js.
-
-Acceptance Part B: With the bots a sector feels calmer, progress does not constantly stall, and a briefly neglected station does not immediately tear down the hull.
-
-Follow the guardrails. Write small, well-described commits and update CLAUDE.md and TASKS.md. Then stop and summarize what you built and which pacing values you set. Do not start another phase yet.
+Follow the guardrails. Small, well-described commits, update CLAUDE.md and TASKS.md. Then stop and summarize how to use the harness. Do not start another phase yet.
 ```
 
 ---
 
-## Phase 2: Cooperative Reaktor station (the centerpiece)
+## Phase 5: Untangle the Reaktor
 
 ```text
-Continue in the project-daedalus repository. Phase 1 is done and you can test alone with bots. Re-read CLAUDE.md and the mini-game interface. The model is a proven classroom game: two people jointly calibrate a reactance, each controls one hidden parameter, a shared target and a live match bar bring them together. The mechanic is fully described below, you do not need any external file. If Felix drops the coop.html template from his other project into the chat, use it only for inspiration, not as code to copy.
+Continue in the project-daedalus repository. Use the test harness from Phase 4 to play the Reaktor while you work. Read client/minigames/reaktor.js and the coop logic in server/game.js (coopInput, coopConfirm, coopMeasure, resetCoopStation, rollCoopTarget, confirmA, confirmB). The Reaktor passes all tests, so this is about the win flow and clarity, not a logic rebuild. Still, first play it via the harness and confirm there is no hidden sync bug. If you find one, fix it.
 
-Goal: A new, cooperative Reaktor station. Two people each set a hidden parameter and jointly hit a target value shown prominently on the beamer. A live match readout and a tone that grows more intense near the target bring them together. This station is the reason to look forward at the beamer and to talk to each other.
-
-Mechanic:
-- Target value from the seed, for example a reactance in ohms. Use discrete component series so the target is exactly reachable, the way the Tiefpassfilter already does.
-- The operator controls parameter A (for example capacitance C), the co-pilot controls parameter B (for example frequency f). Neither sees the other's value. Both see the same target and the same match readout. This very information gap forces the talking.
-- Counts as solved when the combined value stays within tolerance for a short hold time, or when both confirm together. Ask me via AskUserQuestion which model I prefer: automatic on holding inside the target band, or a confirm that both must trigger.
-
-Server and architecture:
-- Unlike the existing single-player mini-games, the Reaktor needs shared station state. The server holds both parameter values per Reaktor station, computes the combined actual value and the proximity to the target, and sends the match to both phones and the beamer.
-- Extend the protocol minimally: a client-to-server message for the continuous input of the coop station, and in hostState as well as the participant view the fields for target and match of the Reaktor station.
-- Build the coop path in isolation, triggered by a flag (for example coop: true on the station entry in shared/protocol.js). The three existing single-player mini-games stay untouched. No regression.
-- The Reaktor module's generate and validate stay DOM-free. The server rebuilds the target from the seed and validates authoritatively.
-
-Role model:
-- The operator and co-pilot of the Reaktor station form the pair. If only one person is at the station, show them both controls as a solo fallback so nothing blocks. If more than two are assigned, the operator and the first co-pilot play, others watch the readout.
-- Extend the debug bots from Phase 1 so they also operate the Reaktor station, that is, move their control toward the target. Only then can you test the coop station alone.
-
-Display and tactile feel:
-- On the beamer, show the Reaktor target and the match large and readable from a distance. Style per docs/VISUAL_DESIGN.md.
-- On the controller, a continuous, physical control (slider or rotary dial) with a large thumb point and immediate reaction. Plus a tone from the cue catalog that grows more intense near the target. Keep the synthesis, add at most one new cue and register it in the manifest.
-- Bring energie to life: couple the so-far constant value energie to the Reaktor. While the Reaktor is stably calibrated, energie holds or rises, otherwise it falls. Keep the coupling simple and tunable via a new value at the top of server/game.js.
-
-Acceptance: With two browser tabs or with the debug bots, the pair calibrates the Reaktor. The target stands on the beamer, the match rises visibly, on a hit the station becomes stable and energie reacts. The three existing stations work unchanged.
-
-Follow the guardrails. Trigger audio cues at the key moments. Write small commits and update CLAUDE.md, README.md, and TASKS.md. At the end do a run with at least two simulated participants at the Reaktor station. Then stop and summarize. Do not start another phase yet.
-```
-
----
-
-## Phase 3: Rebuild the Bordcomputer toward construction
-
-```text
-Continue in the project-daedalus repository. The cooperative core runs. Read client/minigames/bordcomputer.js and test/bordcomputer.test.js. In this phase the mere clicking-through disappears from the Bordcomputer.
-
-Goal: The Bordcomputer is no longer solvable by trial. Instead of picking one component from four options, you construct the solution from a target table.
+Goal: The Reaktor feels like the SOS slider that worked in class. Two people talk, adjust their hidden parameters, and the calibration locks on its own when they hold the combined value in the target band. No confirm dance.
 
 Approach:
-- New mechanic: From the given truth table you assemble the circuit yourself. At least two gates in series or a small wiring of A and B through selectable gates onto the output. The solution arises through placing and connecting, not through a single choice.
-- Feedback only after committing. No more per-row instant correction while building. You commit the circuit, then the evaluation appears. A wrong attempt costs something, for example a short lockout or a small stability deduction, so guessing becomes expensive.
-- The difficulty levels stay professionally graded. Level 1 with simple wiring, higher levels with more gates or a table that must first be derived.
-- generate and validate stay DOM-free, the server validates authoritatively. Update test/bordcomputer.test.js to the new mechanic.
-- Ask me via AskUserQuestion how far the construction should go, for example only gates in series versus a free small wiring, so the build effort fits the remaining time.
+- Replace the dual confirm win with an automatic lock. The calibration engages when the combined value stays inside the target band continuously for a short hold time. Show the hold as it builds, for example a filling ring or bar, so the pair feels it lock in. Remove the Bestaetigen button and the need for both sides to confirm. The COOP_CONFIRM message may stay in the protocol but is no longer required to win.
+- Do not slam a new target the instant they succeed. Ask me via AskUserQuestion which I prefer: the station simply rides on the normal stability decay like the others after locking, or a fresh target rolls after a short visible pause.
+- Loosen the tolerance so blind coordination is achievable. Ask me for the desired feel and derive the per-level values. As a starting point, level 1 clearly wide, level 3 still tight but fair.
+- Make the readout unmistakable. A large state line (too high, too low, in the band), the match bar, and a clear marker for where the band sits. Keep the proximity beep, it is good, and tie it to the match.
+- generate and validate stay DOM-free. The server keeps holding the shared state and validating authoritatively. Update the Reaktor tests if behavior changes, for example a test for the hold-to-lock condition.
 
-Acceptance: A correct solution requires thinking about the table. Blind trial is slow and expensive. The tests are green, the loop runs without regression.
+Acceptance: With one human plus the bot partner, or with two tabs, you reach the target by talking and holding, and it locks smoothly without a confirm fight. The energie value still reacts. The three single-player stations are unaffected.
 
-Follow the guardrails. Small commits, update the docs. Then stop and summarize. Only start Phase 4 if Felix asks for it.
+Follow the guardrails. Trigger audio cues at the key moments. Small commits, update the docs. Then stop and summarize. Do not start another phase yet.
 ```
 
 ---
 
-## Phase 4: Deepen Tiefpass and Zahlensysteme (only if there is free time before the test)
+## Phase 6: Onboarding and a clear sector transition
 
 ```text
-Continue in the project-daedalus repository. Important: only take on this phase if there is still solid time until the classroom test after Phase 3. Otherwise after the test. Read client/minigames/tiefpassfilter.js, client/minigames/zahlensysteme.js, and the related tests.
+Continue in the project-daedalus repository. Read client/controller/controller.js (showWaiting, mountGame), client/beamer/beamer.js, the mini-game interface in CLAUDE.md, and how the server announces a sector change (the rotate event in server/game.js and shared/protocol.js). Goal: a new player understands each station without spoken help, and the sector change is no longer abrupt.
 
-Goal: The two remaining mini-games also reward understanding instead of trial, with delayed feedback and more construction.
+Goal: Short German text introduces the game once and each station before it is played, and the sector transition is a clear, slightly slower beat on both the beamer and the phones.
 
-Approach Tiefpassfilter:
-- The live curve may stay, it is good control feel. The final evaluation, however, comes only after committing.
-- Deepen the task instead of conveniently sliding a single value onto the marker. Options are assembling components from series or a second filter stage.
+Approach:
+- Give each mini-game a short how-to. Add a field to each module (for example a howto string with the station goal in one or two sentences). Before the mini-game mounts, the controller shows a compact instruction card: station name, the goal, a Los button. It appears on the first assignment and again after each rotation.
+- Add a brief game intro on first join: what the mission is and that the crew holds stations stable together. Keep it to a few lines.
+- Make the sector transition explicit. When a sector completes, the beamer and the phones show an interstitial for a few seconds, for example the sector reached and the new station for that player, before the next mini-game appears. Extend the rotate event with whatever the clients need to show this. Slow it down enough to read.
+- Keep all text concise and readable from a distance on the beamer. German quotation marks, no dashes. Colors and type via the tokens.
+- Ask me via AskUserQuestion how much text per station you should write: a single goal line, or a short card with a tiny worked example.
 
-Approach Zahlensysteme:
-- Away from convenient reading-off. Require real conversion, for example one direction without a live decimal readout, or additionally hexadecimal. The bit switches stay as the control element.
+Acceptance: A player who has never seen a station can start it from the card alone. After a sector completes, both the beamer and the phones clearly announce the new sector and the new station before play resumes.
 
-Settle the exact deepening per mini-game with me via AskUserQuestion. Update the tests. generate and validate stay DOM-free.
+Follow the guardrails. Small commits, update the docs. Then stop and summarize. This reaches the re-testable line. Stop here unless Felix asks for Phase 7.
+```
 
-Acceptance: Both mini-games reward understanding, the tests are green, the loop runs without regression.
+---
+
+## Phase 7: Close the Bordcomputer brute-force gap (after the next class test if time is short)
+
+```text
+Continue in the project-daedalus repository. Read client/minigames/bordcomputer.js and test/bordcomputer.test.js. The construction rebuild did not close brute force: low levels have few gate combinations, the failure hint still names how many rows match, and a wrong attempt only costs a little decaying stability. Goal: trial and error becomes the slow path, understanding the table becomes the fast one.
+
+Approach:
+- After a wrong commit, impose a noticeable lockout of a few seconds before another submit is possible. Make the lockout visible so it is felt.
+- Remove the gradient hint on failure. Replace the per-row count with a neutral message such as not matching yet. Do not reveal which rows are wrong after a failed attempt.
+- Keep the build-to-match-table structure. Optionally raise the level 1 solution space a little so nine combinations is not trivial. Ask me via AskUserQuestion whether to enlarge level 1.
+- generate and validate stay DOM-free. Update test/bordcomputer.test.js to the changed behavior.
+
+Acceptance: Blind trial is slow and unrewarding. Reading the table and reasoning about the gates is the quick route. Tests are green, the loop runs without regression.
 
 Follow the guardrails. Small commits, update the docs. Then stop and summarize.
 ```
 
 ---
 
-## Phase 5: Backlog for after the test
+## Phase 8: Ease hexadecimal in Zahlensysteme (after the next class test if time is short)
 
-These points are deliberately deferred. Do not take them on before the classroom test.
+```text
+Continue in the project-daedalus repository. Read client/minigames/zahlensysteme.js and its tests. On level 3 the target is shown in hex, but the live readout shows only decimal and binary, so the player cannot compare their work to the target without converting in their head twice. Goal: hex is solvable with understanding instead of head-math.
 
+Approach:
+- Show the current value in hex in the live readout, next to decimal and binary, so it can be compared directly to the hex target.
+- Group the eight bits visually into two four-bit nibbles, each with its own hex digit shown above or below it, so the hex to binary nibble relationship is visible while solving. This is the actual learning goal.
+- Ask me via AskUserQuestion whether hex should stay on level 3 for everyone or become an opt-in top step, in case it is still too steep for some.
+- generate and validate stay DOM-free. Update the tests.
+
+Acceptance: A player can match a hex target by reasoning per nibble, not by trial. Tests are green, the loop runs without regression.
+
+Follow the guardrails. Small commits, update the docs. Then stop and summarize.
+```
+
+---
+
+## Backlog (after the test, greenlight per item)
+
+- Manual as a cooperation mechanic: one station holds a reference the others need, as a printed handout or an in-app help station, to force communication. Felix's idea, parked here. Say the word to pull it forward.
 - Decorative tactile feel as polish: unscrewing a panel, flipping switches, valves as a ritual before solving.
 - Further stations from `docs/GAME_DESIGN.md`: Antrieb and Schilde as new mini-games via the interface.
 - Multiple rooms instead of a single game on the server.
 - Simple data capture for the reflection, for example which station was solved how often.
 - Real assets in the existing slots: sprites and sound files per cue, registered in the manifest.
+```

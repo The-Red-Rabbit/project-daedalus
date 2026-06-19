@@ -1,6 +1,8 @@
 // Mini-Spiel Zahlensysteme (Themenfeld 3 Digitaltechnik, Station Navigation).
 // Ziel: einen Zielcode ueber Bit-Kippschalter im Dualsystem nachbauen. Die Stufe
-// steuert die Bitbreite und das Quellsystem (dezimal oder hexadezimal).
+// steuert die Bitbreite und das Quellsystem (dezimal oder hexadezimal). Es gibt
+// keine mitlaufende Dezimalanzeige mehr - man muss selbst umrechnen, die Pruefung
+// kommt erst nach dem Bestaetigen.
 // generate() und validate() sind DOM-frei, damit der Server sie pruefen kann.
 
 import { randomInt } from "../../shared/rng.js";
@@ -26,7 +28,7 @@ export default {
   generate(level, rng) {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;
     const bits = lvl === 1 ? 4 : 8; // Stufe 1: 4 Bit, sonst 8 Bit
-    const displayBase = lvl === 3 ? 16 : 10; // Stufe 3 nennt das Ziel in Hex
+    const displayBase = lvl >= 2 ? 16 : 10; // ab Stufe 2 nennt das Ziel in Hex
     const target = randomInt(rng, 0, (1 << bits) - 1);
     return {
       prompt: "Stelle den Zielcode über die Bit-Schalter im Dualsystem ein.",
@@ -69,20 +71,18 @@ export default {
       `<div class="bc-scenario"><span class="bc-label">Auftrag</span>${task.prompt}</div>` +
       `<div class="zs-target">Zielcode <b>${formatTarget(task)}</b></div>` +
       `<div class="zs-bits"></div>` +
-      `<div class="zs-readout">Aktuell <b class="zs-dec">0</b> · <span class="zs-bin"></span></div>` +
-      `<div class="bc-hint zs-hint">Schalter oben ist 1, unten ist 0.</div>` +
+      `<div class="zs-readout">Eingestellt <span class="zs-bin"></span></div>` +
+      `<div class="bc-hint zs-hint">Rechne den Zielcode selbst in Bits um, dann bestätigen. Ein Fehlversuch kostet Stabilität.</div>` +
       `<button class="bc-confirm">Bestätigen</button>`;
 
     const bitsEl = root.querySelector(".zs-bits");
-    const decEl = root.querySelector(".zs-dec");
     const binEl = root.querySelector(".zs-bin");
     const hintEl = root.querySelector(".zs-hint");
     const confirmEl = root.querySelector(".bc-confirm");
 
+    // Kein mitlaufender Dezimalwert mehr - nur das eigene Bitmuster als Echo.
     function refresh() {
-      const v = value();
-      decEl.textContent = v;
-      binEl.textContent = v.toString(2).padStart(task.bits, "0");
+      binEl.textContent = value().toString(2).padStart(task.bits, "0");
     }
 
     for (let i = 0; i < task.bits; i++) {
@@ -110,7 +110,7 @@ export default {
         root.innerHTML = "";
       },
       onResult(res) {
-        if (res.hinweis) hintEl.textContent = res.hinweis;
+        if (res.hinweis) hintEl.textContent = res.geloest ? res.hinweis : `${res.hinweis} Fehlversuch kostet Stabilität.`;
         if (res.geloest) {
           confirmEl.textContent = "Erfasst";
           confirmEl.disabled = true;
