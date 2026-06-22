@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import { C2S, S2C, TICK_HZ, STATIONS, PHASES, encode, decode } from "../shared/protocol.js";
 import { createGame } from "./game.js";
 import { createBots } from "./bots.js";
+import { append as appendHighscore, load as loadHighscores, top as topHighscores } from "./highscore.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, "..");
@@ -116,6 +117,13 @@ const bots = DEBUG ? createBots(game) : null;
 const hosts = new Set();
 const controllers = new Map(); // ws -> participantId
 let nextId = 1;
+
+// Highscore-Zustand: alle gespeicherten Eintraege und der Zeitstempel des
+// aktuellen Sieges (fuer die Hervorhebung in der Tabelle auf der Bruecke).
+let highscores = [];
+let prevPhase = PHASES.LOBBY;
+let currentWinTs = null;
+loadHighscores().then(list => { highscores = list; });
 
 function send(ws, type, payload) {
   if (ws.readyState === ws.OPEN) ws.send(encode(type, payload));
@@ -282,7 +290,28 @@ setInterval(() => {
   if (rotated && bots) bots.reseat();
   // Bots loesen nach dem Tick und vor dem Versand, damit ihr Stand sofort sichtbar ist.
   if (bots) bots.tick(dt, game.hostState().phase === PHASES.RUNNING);
-  const hostState = game.hostState();
+  const rawState = game.hostState();
+
+  // Sieg erkennen (steigende Flanke): Eintrag speichern und Zeitstempel merken.
+  if (prevPhase !== PHASES.WON && rawState.phase === PHASES.WON) {
+    const entry = {
+      score: rawState.shared.score,
+      crew: (rawState.roster || []).map(p => p.label),
+      ts: new Date().toISOString(),
+    };
+    currentWinTs = entry.ts;
+    appendHighscore(entry).then(list => { highscores = list; });
+  } else if (prevPhase === PHASES.WON && rawState.phase !== PHASES.WON) {
+    currentWinTs = null; // neue Runde, kein Highlight mehr
+  }
+  prevPhase = rawState.phase;
+
+  // Bruecke bekommt die Top-10-Liste und den Zeitstempel des aktuellen Sieges.
+  const hostState = {
+    ...rawState,
+    highscores: topHighscores(highscores),
+    currentWinTs: rawState.phase === PHASES.WON ? currentWinTs : null,
+  };
   for (const ws of hosts) send(ws, S2C.STATE, hostState);
   for (const [ws, pid] of controllers) send(ws, S2C.STATE, game.participantState(pid));
   // Reaktor eingerastet (Hold-to-Lock): den beteiligten Controllern eine
