@@ -40,8 +40,14 @@
   #grace-hint { position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-cyan); color: var(--text-primary); font-size: 16px; letter-spacing: 0.04em; padding: 8px 18px; border-radius: 3px; }
   #grace-hint[hidden] { display: none; }
 
-  /* Reaktor: Ziel und Naehe gross und aus der Entfernung lesbar. */
-  #reaktor { position: absolute; top: 150px; left: 50%; transform: translateX(-50%); z-index: 7; width: min(640px, 74vw); background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 16px 24px 18px; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 30px rgba(0,0,0,0.5); }
+  /* Score-Panel: grosse Punktanzeige oben mittig, waehrend des Einsatzes gut lesbar. */
+  #score-panel { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); z-index: 8; background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-yellow); border-radius: 6px; padding: 10px 32px 14px; text-align: center; min-width: 160px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+  #score-panel[hidden] { display: none; }
+  .score-kicker { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+  .score-value { font-size: 56px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-yellow); line-height: 1.1; }
+
+  /* Reaktor: Ziel und Naehe gross und aus der Entfernung lesbar. Nach unten verschoben, um Platz fuer das Score-Panel zu lassen. */
+  #reaktor { position: absolute; top: 218px; left: 50%; transform: translateX(-50%); z-index: 7; width: min(640px, 74vw); background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 16px 24px 18px; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 30px rgba(0,0,0,0.5); }
   #reaktor[hidden] { display: none; }
   #reaktor .rk-kicker { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); }
   #reaktor .rk-target { font-size: 42px; font-weight: 600; font-family: var(--font-mono); margin: 4px 0 14px; }
@@ -76,14 +82,25 @@
   .lobby-empty { color: var(--text-muted); font-style: italic; }
   .lobby-wait { margin-top: 20px; font-size: 15px; color: var(--accent-yellow); letter-spacing: 0.02em; }
 
-  #result { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.74); z-index: 10; }
+  #result { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.82); z-index: 10; overflow-y: auto; }
   #result[hidden] { display: none; }
-  .result-card { background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 4px; padding: 34px 46px; text-align: center; }
-  .result-card.lost { border-top-color: var(--accent-red); }
-  .result-title { font-size: 44px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); }
-  .result-card.lost .result-title { color: var(--accent-red); }
-  .result-text { color: var(--text-muted); margin: 12px 0 0; }
-  .result-hint { color: var(--text-muted); font-size: 13px; margin-top: 16px; }
+  .hs-card { background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 26px 36px 28px; width: min(860px, 92vw); box-sizing: border-box; }
+  .hs-card.lost { border-top-color: var(--accent-red); }
+  .hs-phase { font-size: 36px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); }
+  .hs-card.lost .hs-phase { color: var(--accent-red); }
+  .hs-sub { font-size: 16px; color: var(--text-muted); margin: 6px 0 20px; }
+  .hs-table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  .hs-table th { text-align: left; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); padding: 0 10px 8px; border-bottom: 1px solid var(--edge); }
+  .hs-table th:nth-child(2) { text-align: right; }
+  .hs-table td { padding: 9px 10px; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  .hs-table td:first-child { color: var(--text-muted); font-size: 14px; font-family: var(--font-mono); width: 42px; }
+  .hs-table td:nth-child(2) { font-family: var(--font-mono); font-size: 24px; font-weight: 700; color: var(--accent-yellow); text-align: right; width: 80px; }
+  .hs-table td:last-child { font-size: 13px; color: var(--text-muted); white-space: nowrap; width: 160px; }
+  .hs-table tr.hs-current td { color: var(--accent-cyan); }
+  .hs-table tr.hs-current td:nth-child(2) { color: var(--accent-cyan); }
+  .hs-table tr.hs-current { background: rgba(54,208,224,0.07); outline: 1px solid rgba(54,208,224,0.25); }
+  .hs-empty { color: var(--text-muted); font-style: italic; font-size: 15px; padding: 16px 0; }
+  .hs-hint { color: var(--text-muted); font-size: 13px; margin-top: 18px; text-align: center; }
 
   #btn-audio { position: fixed; right: 16px; bottom: 16px; z-index: 12; font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 3px; padding: 8px 12px; cursor: pointer; }
   #btn-audio:hover { border-color: var(--accent-orange); }
@@ -111,11 +128,20 @@
     </div>
 
     <div id="result" hidden>
-      <div class="result-card" id="result-card">
-        <div class="result-title" id="result-title">Sieg</div>
-        <div class="result-text" id="result-text"></div>
-        <div class="result-hint">Die Lehrkraft startet am Leitstand einen neuen Anlauf.</div>
+      <div class="hs-card" id="hs-card">
+        <div class="hs-phase" id="hs-phase">Sieg</div>
+        <div class="hs-sub" id="hs-sub"></div>
+        <table class="hs-table">
+          <thead><tr><th>Rang</th><th>Punkte</th><th>Crew</th><th>Datum</th></tr></thead>
+          <tbody id="hs-tbody"></tbody>
+        </table>
+        <div class="hs-hint">Die Lehrkraft startet am Leitstand einen neuen Anlauf.</div>
       </div>
+    </div>
+
+    <div id="score-panel" hidden>
+      <div class="score-kicker">Punkte</div>
+      <div class="score-value" id="score-value">0</div>
     </div>
 
     <div id="banner"></div>

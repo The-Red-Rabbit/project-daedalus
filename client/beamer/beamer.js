@@ -92,6 +92,13 @@ function banner(text) {
   bannerTimer = setTimeout(() => b.classList.remove("show"), 3000);
 }
 
+// Zeitstempel deterministisch als "DD.MM.YYYY, HH:MM" formatieren (keine Locale).
+function formatTs(isoString) {
+  const d = new Date(isoString);
+  const p = n => String(n).padStart(2, "0");
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()}, ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function updateState(state) {
   applyPhase(state);
   el("sector").textContent = `Sektor ${state.sector} / ${state.sectorCount}`;
@@ -104,6 +111,8 @@ function updateState(state) {
   el("n-fortschritt").textContent = `${Math.round(state.shared.fortschritt)}%`;
   renderStations(state.stations);
   renderReaktor(state);
+  renderScore(state);
+  renderHighscores(state);
   // Schonzeit-Hinweis: ruhiger Anflug, in dem nichts verfaellt.
   const graceHint = el("grace-hint");
   if (state.phase === PHASES.RUNNING && state.grace > 0) {
@@ -115,6 +124,51 @@ function updateState(state) {
   renderer.setState(state);
   // Alarmbett bei kritischer Huelle (nur im laufenden Spiel und wenn Ton frei).
   if (audioOn) audio.setAlarm(state.phase === PHASES.RUNNING && state.shared.huelle <= 30);
+}
+
+// Live-Punktanzeige: gross und zentriert, nur im laufenden Einsatz.
+function renderScore(state) {
+  const panel = el("score-panel");
+  if (state.phase !== PHASES.RUNNING) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  el("score-value").textContent = String(state.shared.score ?? 0);
+}
+
+// Highscore-Tabelle: nach Sieg oder Niederlage als Abschlussbild auf der Bruecke.
+function renderHighscores(state) {
+  if (state.phase !== PHASES.WON && state.phase !== PHASES.LOST) return;
+  const card = el("hs-card");
+  const won = state.phase === PHASES.WON;
+  card.classList.toggle("lost", !won);
+  el("hs-phase").textContent = won ? "Sieg" : "Niederlage";
+  el("hs-sub").textContent = won
+    ? `Ergebnis dieser Runde: ${state.shared.score ?? 0} Punkte`
+    : `Ergebnis dieser Runde: ${state.shared.score ?? 0} Punkte · Die Hülle ist zusammengebrochen.`;
+
+  const list = state.highscores || [];
+  const winTs = state.currentWinTs || null;
+  const tbody = el("hs-tbody");
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="4" class="hs-empty">Noch keine Einträge vorhanden.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = "";
+  list.forEach((entry, i) => {
+    const tr = document.createElement("tr");
+    const isCurrent = winTs && entry.ts === winTs;
+    if (isCurrent) tr.className = "hs-current";
+    const crewText = (entry.crew || []).join(", ") || "–";
+    const dateText = entry.ts ? formatTs(entry.ts) : "–";
+    tr.innerHTML =
+      `<td>${i + 1}.</td>` +
+      `<td>${entry.score ?? 0}</td>` +
+      `<td>${crewText}</td>` +
+      `<td>${dateText}</td>`;
+    tbody.appendChild(tr);
+  });
 }
 
 function applyPhase(state) {
@@ -129,15 +183,7 @@ function applyPhase(state) {
   }
 
   if (phase === PHASES.LOBBY) renderLobbyCrew(state.roster || []);
-  if (phase === PHASES.WON || phase === PHASES.LOST) {
-    const card = el("result-card");
-    card.classList.toggle("lost", phase === PHASES.LOST);
-    el("result-title").textContent = phase === PHASES.WON ? "Sieg" : "Niederlage";
-    el("result-text").textContent =
-      phase === PHASES.WON
-        ? "Die Daedalus hat das Asteroidenfeld durchquert."
-        : "Die Hülle ist zusammengebrochen.";
-  }
+  // Highscore-Inhalt wird separat in renderHighscores() befuellt.
 
   if (phase !== prevPhase) {
     if (audioOn && phase === PHASES.WON) audio.play("ui.confirm");

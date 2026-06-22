@@ -302,6 +302,7 @@ function showEnd(phase) {
   wrap.innerHTML =
     `<div class="end-title">${won ? "Sieg" : "Niederlage"}</div>` +
     `<p class="muted">${won ? "Die Daedalus hat das Asteroidenfeld durchquert." : "Die Hülle ist zusammengebrochen."}</p>` +
+    `<p class="muted">Schaut auf die Brücke – dort seht ihr die Bestenliste.</p>` +
     `<p class="muted small">Die Lehrkraft startet am Leitstand einen neuen Anlauf.</p>`;
   app.appendChild(wrap);
 }
