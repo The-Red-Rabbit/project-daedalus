@@ -229,6 +229,10 @@ Um ein einzelnes Mini-Spiel zu testen, ohne durch Lobby und Rotation zu spielen,
 
 Serverseitig setzt `game.debugSeat(id, label, station, level)` den Teilnehmer gezielt als Operator auf die Station (über `seatParticipant`, das einen vorhandenen Operator zum Co-Pilot macht) und schaltet das Spiel in den **Sandbox**-Zustand: Phase `running`, aber im Tick ruhen Hüllenverlust, Spielende und Sektorfluss, damit eine einzelne Teststation nicht wegrotiert oder das Schiff aufreibt. Stabilitätsverfall und die Energie-Kopplung laufen weiter, damit sich das Mini-Spiel echt anfühlt. Für eine Koop-Station (`coop: true`) ergänzt der Server über `bots.spawnPartner(stationId)` automatisch einen Bot als Co-Pilot, sodass der Match-Wert lebt und der Koop-Pfad allein testbar ist. Den Sandbox-Zustand verlassen `startGame` (echter Start) und `reset` (zurück zur Lobby).
 
+### Highscore
+
+Der Server zählt jede erfolgreiche Lösung während der Phase `running` als Punkt (Einzel-Mini-Spiele und Reaktor-Einrastungen je +1). Der Punktestand steht in `shared.score` und wird im `hostState` mitgeschickt; die Brücke zeigt ihn als großes Panel oben mittig. Bei Sieg wird ein Eintrag (Punktzahl, Crewnamen, ISO-Zeitstempel) an `data/highscores.json` angehängt (erzeugt falls fehlend, corrupt-safe). Bei Niederlage wird nichts gespeichert. Nach jedem Spielende zeigt die Brücke statt des alten Ergebnisfensters eine sortierte Top-10-Liste (höchste Punktzahl zuerst, Gleichstand nach früherem Zeitstempel); der aktuelle Sieg-Eintrag ist cyan hervorgehoben. Die Phones zeigen nur einen kurzen Hinweis, auf die Brücke zu schauen. Das Modul `server/highscore.js` kapselt die Datei-IO; `data/` liegt in `.gitignore`. Tests: `test/highscore.test.js`.
+
 ### Bekannte Lücken und mögliche nächste Schritte
 
 - Energie ist an den Reaktor gekoppelt (stabil kalibriert hält/hebt, sonst fällt). Tiefere Wechselwirkungen (Energie als Ressource, die Stationen speist) sind noch offen.

@@ -188,6 +188,20 @@ Architektur: `generate`/`validate` bleiben DOM-frei; `howto` ist reiner Text. Te
 
 Fertig, wenn: Eine Person kann eine Station allein aus der Karte starten, und nach einem Sektorabschluss kuendigen Bruecke und Phones klar Sektor und neue Station an, bevor es weitergeht. Belegt durch `npm test` (67 gruen, inkl. howto-Test) und einen WebSocket-Durchlauf (Bots treiben einen echten Sektorwechsel: `start`-Ereignis, `rotate` mit `sector`/`sectorCount`, danach das `assignment` der neuen Station).
 
+### Runde 3 · Phase 7: Highscore (erledigt)
+
+Ziel: Jede Runde hinterlässt eine Spur. Die Klasse sieht sofort, ob sie ihren eigenen Rekord gebrochen hat.
+
+Score: Jede erfolgreiche Lösung (Einzel-Station oder Reaktor-Einrastung) erhöht den Punkt­zähler um 1. Der Zähler läuft nur in der Phase `running`, startet mit `startGame` und `reset` bei 0. Er liegt in `shared.score` im autoritativen Zustand und wird im `hostState` mitgeschickt. Die Brücke zeigt ihn als großes Panel oben mittig, sichtbar aus der letzten Reihe.
+
+Persistenz: Bei Sieg (nicht bei Niederlage) schreibt der Server einen Eintrag in `data/highscores.json` (Punktzahl, Crewnamen aus dem Roster, ISO-Zeitstempel). Das Verzeichnis und die Datei werden bei Bedarf erstellt; eine leere oder korrupte Datei ergibt eine leere Liste ohne Absturz. `data/` liegt in `.gitignore`. Modul: `server/highscore.js`.
+
+Abschlussbild: Nach Sieg oder Niederlage ersetzt die Brücke das alte Ergebnisfenster durch eine sortierte Top-10-Tabelle (Punkte absteigend, Gleichstand nach früherem Zeitstempel). Der aktuelle Sieg-Eintrag ist cyan hervorgehoben. Die Phones zeigen nur einen kurzen deutschen Hinweis, auf die Brücke zu schauen.
+
+Architektur: `server/highscore.js` kapselt `sort()`, `top()` und `append()` (letzte zwei DOM-frei und testbar). Der Server hängt `highscores` (Top-10-Array) und `currentWinTs` (Zeitstempel des aktuellen Siegs, nur in Phase `won`) an den Host-`state`. Die Brücke rendert daraus Tabelle und Highlight. `test/highscore.test.js` prüft Sortierung, Gleichstand und Trim.
+
+Fertig, wenn: Jeder Solve erhöht die Live-Anzeige, ein Sieg speichert den Eintrag und die Brücke zeigt ihn hervorgehoben in der sortierten Liste, eine Niederlage zeigt die Liste ohne neuen Eintrag, die Phones zeigen den Brücken-Hinweis, und Reset startet eine frische Runde bei 0. Belegt durch `npm test` (143 grün, inkl. 6 Highscore-Tests) und einen Durchlauf mit Debug-Bots (Sieg → Eintrag in `data/highscores.json`, Niederlage → keine Änderung, Reset → Score 0).
+
 ## Designhinweise für alle Tickets
 
 - Farben und Schriften nur über `client/styles/tokens.css`.
