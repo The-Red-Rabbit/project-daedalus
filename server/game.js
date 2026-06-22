@@ -55,7 +55,7 @@ export function createGame(config) {
   // id -> { id, label, role, stationId, level, task, taskAt }
   const participants = new Map();
 
-  const shared = { huelle: 100, energie: 100, fortschritt: 0 };
+  const shared = { huelle: 100, energie: 100, fortschritt: 0, score: 0 };
   let sector = 1;
   // Das Spiel beginnt in der Lobby und wartet auf den Start durch die Lehrkraft.
   let phase = PHASES.LOBBY; // "lobby" | "running" | "won" | "lost"
@@ -277,6 +277,7 @@ export function createGame(config) {
         refreshStatus(s);
         s.locked = true;
         s.lockPause = RELOCK_PAUSE_SEC;
+        shared.score++; // Koop-Einrasten zaehlt als eine gemeinsame Loesung
         const crew = [s.operatorId, coopPartnerId(s)].filter(Boolean);
         return crew;
       }
@@ -359,6 +360,7 @@ export function createGame(config) {
         refreshStatus(s);
       }
       adapt(p);
+      if (phase === PHASES.RUNNING) shared.score++;
     } else if (s && !s.coop && phase === PHASES.RUNNING) {
       // Fehlversuch im laufenden Einsatz kostet ein Stueck Stabilitaet, damit
       // blindes Probieren teuer wird (Koop-Stationen rasten ueber die Haltezeit ein).
@@ -375,6 +377,7 @@ export function createGame(config) {
       phase = PHASES.RUNNING;
       sandbox = false; // ein echter Start verlaesst den Teststand
       graceUntil = now + GRACE_SEC;
+      shared.score = 0;
       for (const s of stations) if (s.coop) resetCoopStation(s);
     }
     return phase;
@@ -451,6 +454,7 @@ export function createGame(config) {
     shared.huelle = 100;
     shared.energie = 100;
     shared.fortschritt = 0;
+    shared.score = 0;
     sector = 1;
     phase = PHASES.LOBBY;
     graceUntil = 0;

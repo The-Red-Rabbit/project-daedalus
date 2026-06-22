@@ -258,7 +258,7 @@ test("reset: neuer Anlauf landet in der Lobby, Crew bleibt sitzen", () => {
   const hs = game.hostState();
   assert.equal(hs.phase, "lobby"); // wartet wieder auf den Start
   assert.equal(hs.sector, 1);
-  assert.deepEqual(hs.shared, { huelle: 100, energie: 100, fortschritt: 0 });
+  assert.deepEqual(hs.shared, { huelle: 100, energie: 100, fortschritt: 0, score: 0 });
   assert.equal(game.assignmentOf("p1").role, "operator"); // Crew bleibt
   assert.equal(game.station("bc").status, "achtung"); // besetzt, aber nicht stabil
   game.tick(1); // in der Lobby ruht die Simulation wieder
