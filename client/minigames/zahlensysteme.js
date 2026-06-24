@@ -17,8 +17,34 @@ function popcount(n) {
 }
 
 function formatTarget(task) {
-  if (task.displayBase === 16) return `0x${task.target.toString(16).toUpperCase()} (hexadezimal)`;
+  if (task.displayBase === 16) return `0x${task.target.toString(16).toUpperCase()} (hexadezimal) ${showHexCalc(task.target)}`;
   return `${task.target} (dezimal)`;
+}
+
+function showHexCalc(number) {
+    // 1. Prüfen, ob die Zahl im Bereich für zweistellige Hex-Zahlen liegt (0 bis 255)
+    if (number < 0 || number > 255) {
+        return "";
+    }
+
+    // 2. Dezimal in Hex umwandeln, großschreiben und bei einstelligen Zahlen eine '0' voranstellen
+    const hex = number.toString(16).toUpperCase().padStart(2, '0');
+    
+    // 3. Die linke und rechte Ziffer trennen
+    const left = hex[0];
+    const rightHex = hex[1];
+    
+    // 4. Den rechten Buchstaben (oder die Zahl) wieder in einen Dezimalwert umwandeln
+    const rightDez = parseInt(rightHex, 16);
+
+    // 5. Den Text-String genau in deinem Wunschformat zusammenbauen
+    let resultText = `${left} x 16 + ${rightHex}`;
+    if (rightDez >= 10) {
+      resultText = `${left} x 16 + ${rightHex} = ${left} x 16 + ${rightDez}`;
+    } 
+    
+
+    return resultText;
 }
 
 export default {

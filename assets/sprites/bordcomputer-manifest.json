@@ -1,0 +1,311 @@
+{
+  "schema": "bordcomputer-sprite-manifest/1.0",
+  "description": "Sprite-Asset-Manifest für das Bordcomputer-Mini-Spiel (Themenfeld 3). Beschreibt alle grafischen Bausteine, die die prozedurale Canvas-Zeichnung in bordcomputer-ui.js ersetzen können.",
+  "style": "Industrial Grimdark Retrofuturism — schwerer, benutzter Stahl; Rohrleitungen als Signalwege; analoge Militärschalter; knappe, punktuelle Beleuchtung. Referenz: docs/VISUAL_DESIGN.md",
+
+  "renderingModel": {
+    "description": "Drei-Schicht-Kompositing, übereinandergelegt per Canvas drawImage()",
+    "layers": [
+      "1. Zell-Hintergrund   – gemeinsame Stahlplatte je Zelle (Schrauben, Schweißnähte, Verschleiß)",
+      "2. Kanal-Maske        – dunkle Rohrführung die zeigt, welche Ports verbunden sind (als Maske oder eigene Zeichnung)",
+      "3. Leuchtsignal       – farbiger Glowstreifen im Kanal, State-abhängig getönt per Canvas-Filter"
+    ],
+    "stateRendering": "Schicht 3 wird per Canvas globalCompositeOperation 'source-atop' auf die Kanal-Maske gelegt und per fillStyle auf den State-Farbwert getönt. Keine separaten State-Sprites nötig.",
+    "rotation": "Alle Kachelsprites werden in Rotation 0 geliefert; Rotation 1–3 entsteht durch Canvas rotate() vor dem drawImage()-Aufruf."
+  },
+
+  "colorPalette": {
+    "notes": "Alle Farben müssen aus tokens.css stammen. Keine Hex-Werte direkt in UI-Code.",
+    "signalActive":  "#9bbf6a",
+    "signalInactive": "rgba(54,208,224,0.18)",
+    "wireLocked":    "rgba(138,141,134,0.28)",
+    "wireDefault":   "#36d0e0",
+    "cornerMirror":  "#f2c014",
+    "panelDark":     "#17191c",
+    "panelGate":     "#1f2226",
+    "edge":          "#2b2e31",
+    "orange":        "#e8761a",
+    "red":           "#d23a36"
+  },
+
+  "cellSize": 64,
+
+  "assets": [
+
+    {
+      "group": "Zell-Hintergründe (Schicht 1)",
+      "items": [
+        {
+          "id": "cell-bg-default",
+          "filename": "bordcomputer/cell-bg-default.png",
+          "purpose": "Standard-Zellhintergrund für Kacheln und leere Felder. Dunkelgraue Stahlplatte mit schwachem Kantenhighlight, zwei sichtbaren Schraubenköpfen an den Ecken, subtilen Kratzern.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Schrauben an zwei diagonal gegenüberliegenden Ecken (oben-links, unten-rechts). Keine scharfen Highlights – Licht wirkt knapp und industriell."
+        },
+        {
+          "id": "cell-bg-locked",
+          "filename": "bordcomputer/cell-bg-locked.png",
+          "purpose": "Zellhintergrund für gesperrte Kacheln. Minimal hellere Fläche (nicht rot – Sperrung ist neutral), Schraubenköpfe mit Rostansatz. Kein integriertes Lock-Icon (kommt als Overlay).",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Unterscheid zu cell-bg-default: stärkere Schmutzschicht, Farbton 5–8% heller (muted statt cyan-tinted). Schrauben an allen vier Ecken."
+        },
+        {
+          "id": "cell-bg-gate",
+          "filename": "bordcomputer/cell-bg-gate.png",
+          "purpose": "Hintergrund für ein Gatter (zwei Zellen breit). Breitere Platte mit zentralem Panel-Rahmen (orange-markierte Kante als Warnsignal), Kabelkanälen rechts und links.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null,
+          "notes": "Wird für gate_l und gate_r zusammen gezeichnet: einmal an Position (gate.col × cellSize, gate.row × cellSize). Rahmenfarbe wechselt per Canvas-Tint: orange (idle) → grün (beide Eingänge aktiv). Wenn möglich als reines Hintergrundbild ohne Farblogik, State-Overlay per separater Grafik."
+        },
+        {
+          "id": "cell-bg-gate-border-idle",
+          "filename": "bordcomputer/cell-bg-gate-border-idle.png",
+          "purpose": "Gatter-Rahmen-Overlay im Leerlauf (orange). Liegt über cell-bg-gate.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null,
+          "notes": "Nur der Innenrahmen (2px), Rest transparent. Alternativ per Canvas-Stroke mit orangefarbenem Stroke gezeichnet."
+        },
+        {
+          "id": "cell-bg-gate-border-active",
+          "filename": "bordcomputer/cell-bg-gate-border-active.png",
+          "purpose": "Gatter-Rahmen-Overlay wenn beide Eingänge Signal führen (grün).",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null,
+          "notes": "Gleiche Geometrie wie gate-border-idle, andere Farbe. Optional als einziges PNG mit Canvas-Tinting."
+        }
+      ]
+    },
+
+    {
+      "group": "Kanal-Masken (Schicht 2) – Kacheltypen",
+      "notes": "Je Kacheltyp eine Datei in Rotation 0. Alle weiteren Rotationen entstehen durch Canvas rotate(). Der Kanal ist ein dunkler Rohrquerschnitt (Innen dunkel, leichter 3D-Rand) der die aktiven Ports verbindet. Ports enden an der Zellmitte der jeweiligen Kante.",
+      "items": [
+        {
+          "id": "channel-straight",
+          "filename": "bordcomputer/channel-straight.png",
+          "purpose": "Gerader Kanal N↔S. Zentrale Rohrbahn von oben bis unten. Für Rotation 1 (E↔W): 90° gedreht zeichnen.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Rohrbreite ca. 11–12px (≈18% der Zellenbreite). Innenwände mit leichter Tönung für 3D-Effekt. Kein Glow in dieser Schicht."
+        },
+        {
+          "id": "channel-corner",
+          "filename": "bordcomputer/channel-corner.png",
+          "purpose": "Eck-Kanal N→E (Rotation 0). Viertelkreisbogen im Innern der Ecke (oben-rechts). Andere Rotationen per Canvas-Drehung.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Innenradius des Bogens: ca. 50% der Zellgröße (→ Port trifft Kantenmitte). Deutlich erkennbarer Innenschatten für grimdark-Tiefe."
+        },
+        {
+          "id": "channel-corner-m",
+          "filename": "bordcomputer/channel-corner-m.png",
+          "purpose": "Gespiegelte Ecke N→W (Rotation 0). Wie corner, aber Bogen verläuft auf der anderen Seite (Kurve geht nach oben-links). Erkennbar an Signalgelb (#f2c014) statt Cyan.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Farbkodierung: CORNER_M hat in der prozeduralen Fassung gelbe Leitungen. Sprite-Variante: gleiche Geometrie wie channel-corner, aber Grundtönung in gelb-grauem Metallton."
+        },
+        {
+          "id": "channel-tjct",
+          "filename": "bordcomputer/channel-tjct.png",
+          "purpose": "T-Kreuzung (Rotation 0): Ports N, E, S offen; W geschlossen. Mittiger horizontaler Kanal + Abzweig nach unten.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Verschlossener Port (W in Rotation 0) als Blindflansch erkennbar: runder Stopfen aus demselben Metallmaterial."
+        },
+        {
+          "id": "channel-xcross",
+          "filename": "bordcomputer/channel-xcross.png",
+          "purpose": "Kreuzung mit zwei unabhängigen Kanälen: N↔S und E↔W überqueren sich ohne Verbindung. Kann durch Kreuzungsbrücke (Überführung) optisch getrennt werden.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Brücke empfohlen: Ein Kanal verläuft durch, der andere wird als Überführung (leichter Wölbungsschatten) dargestellt. Stärkt das Verständnis der Unabhängigkeit."
+        },
+        {
+          "id": "channel-deadend",
+          "filename": "bordcomputer/channel-deadend.png",
+          "purpose": "Sackgasse (Rotation 0): Kanal von N kommend, endet mit Endkappe in der Zellmitte. Schluckt das Signal.",
+          "dimensions": { "width": 64, "height": 64 },
+          "animation": null,
+          "notes": "Endkappe als runde Blindplatte mit Schraube, klar erkennbar als Abschluss. Andere Richtungen: keine Öffnung sichtbar."
+        }
+      ]
+    },
+
+    {
+      "group": "Leuchtsignal-Overlays (Schicht 3)",
+      "notes": "Diese Sprites haben dieselbe Geometrie wie die Kanal-Masken, aber als Leuchtkanal. State-Tinting per Canvas: aktiv=#9bbf6a (grün), inaktiv=rgba(54,208,224,0.18), gesperrt=rgba(138,141,134,0.28). Alle 6 Kanalformen werden benötigt.",
+      "items": [
+        { "id": "glow-straight",  "filename": "bordcomputer/glow-straight.png",  "purpose": "Leuchtkanalstreifen für STRAIGHT (beide Orientierungen per Rotation).", "dimensions": { "width": 64, "height": 64 }, "animation": null },
+        { "id": "glow-corner",    "filename": "bordcomputer/glow-corner.png",    "purpose": "Leuchtbogen für CORNER.", "dimensions": { "width": 64, "height": 64 }, "animation": null },
+        { "id": "glow-corner-m",  "filename": "bordcomputer/glow-corner-m.png",  "purpose": "Leuchtbogen für CORNER_M (gelb-getönt).", "dimensions": { "width": 64, "height": 64 }, "animation": null },
+        { "id": "glow-tjct",      "filename": "bordcomputer/glow-tjct.png",      "purpose": "Leuchtkanal für T_JCT.", "dimensions": { "width": 64, "height": 64 }, "animation": null },
+        { "id": "glow-xcross",    "filename": "bordcomputer/glow-xcross.png",    "purpose": "Leuchtkanal für X_CROSS (beide Kanäle separat leuchtfähig).", "dimensions": { "width": 64, "height": 64 }, "animation": null },
+        { "id": "glow-deadend",   "filename": "bordcomputer/glow-deadend.png",   "purpose": "Leuchtkanal für DEAD_END (kurzer Stumpf + Endglow).", "dimensions": { "width": 64, "height": 64 }, "animation": null }
+      ]
+    },
+
+    {
+      "group": "Gatter-Sprites",
+      "notes": "Gatter belegen zwei Zellen (128×64px). Rahmenfarbe und Port-Stummel ändern sich per State; die Sprites liefern Körper + Innengrafik, State-Farben kommen als Canvas-Overlay.",
+      "items": [
+        {
+          "id": "gate-and",
+          "filename": "bordcomputer/gate-and.png",
+          "purpose": "AND-Gatter. Körper mit D-förmigem Symbol (ANSI/MIL-Stil) oder Typenbeschriftung 'AND' in militärischer Blockschrift.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null,
+          "notes": "Keine Farb-State-Information im Sprite selbst – Rahmen und Port-Stümpfe werden per Canvas gezeichnet."
+        },
+        {
+          "id": "gate-or",
+          "filename": "bordcomputer/gate-or.png",
+          "purpose": "OR-Gatter. Symbol oder Beschriftung 'OR'.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null
+        },
+        {
+          "id": "gate-xor",
+          "filename": "bordcomputer/gate-xor.png",
+          "purpose": "XOR-Gatter. Symbol oder Beschriftung 'XOR'.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null
+        },
+        {
+          "id": "gate-nand",
+          "filename": "bordcomputer/gate-nand.png",
+          "purpose": "NAND-Gatter. Beschriftung 'NAND', optional negierter AND-Kreis.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null
+        },
+        {
+          "id": "gate-nor",
+          "filename": "bordcomputer/gate-nor.png",
+          "purpose": "NOR-Gatter. Beschriftung 'NOR', optional negierter OR-Kreis.",
+          "dimensions": { "width": 128, "height": 64 },
+          "animation": null
+        },
+        {
+          "id": "gate-port-stummel",
+          "filename": "bordcomputer/gate-port-stummel.png",
+          "purpose": "Einzel-Port-Stummel für Gatter-Eingänge (A und B) und Ausgang. Wird je Port gezeichnet; Farbe per Canvas-Tint (cyan → grün wenn aktiv).",
+          "dimensions": { "width": 12, "height": 18 },
+          "animation": null,
+          "notes": "Stummel-Länge ca. 2–2.5× Pad (5px). Kannerstens als einfacher Canvas-Stroke bleiben, wenn kein 3D-Effekt gewünscht."
+        }
+      ]
+    },
+
+    {
+      "group": "Eingangs-/Ausgangsmarkierungen",
+      "items": [
+        {
+          "id": "marker-arrow-input",
+          "filename": "bordcomputer/marker-arrow-input.png",
+          "purpose": "Aufwärts-Pfeil für E1- und E2-Eingang (unten, grün). Zeigt Signalflussrichtung nach oben ins Grid.",
+          "dimensions": { "width": 20, "height": 28 },
+          "animation": null,
+          "notes": "Grimdark-Stil: kantiger Industriepfeil, nicht elegant. Pfeilkopf: massiver Dreieckskopf, Schaft solid. Farbe: #9bbf6a (signalActive)."
+        },
+        {
+          "id": "marker-arrow-output",
+          "filename": "bordcomputer/marker-arrow-output.png",
+          "purpose": "Aufwärts-Pfeil für den Ausgang (oben, orange). Zeigt, dass Signal das Grid verlässt.",
+          "dimensions": { "width": 20, "height": 28 },
+          "animation": null,
+          "notes": "Gleiche Geometrie wie marker-arrow-input, Farbe: #e8761a (orange)."
+        },
+        {
+          "id": "icon-lock",
+          "filename": "bordcomputer/icon-lock.png",
+          "purpose": "Schloss-Icon als Overlay auf gesperrten Kacheln (unten-rechts in der Zelle).",
+          "dimensions": { "width": 14, "height": 14 },
+          "animation": null,
+          "notes": "Militärisches Vorhängeschloss. Farbe: #8a8d86 (muted). Alternativ bleibt das bestehende Emoji-Rendering (🔒); dieses Sprite ist optional."
+        }
+      ]
+    },
+
+    {
+      "group": "Signal-Animation (optional)",
+      "notes": "Die prozedurale Animation beleuchtet Zellen schrittweise per Timer. Diese Sprites erlauben einen fließenden Glow-Effekt statt hard-switching.",
+      "items": [
+        {
+          "id": "anim-signal-pulse",
+          "filename": "bordcomputer/anim-signal-pulse.png",
+          "purpose": "Spritesheet: Signal-Impuls der durch eine Zelle läuft. 4 Frames, jeder 64×64px.",
+          "dimensions": { "width": 256, "height": 64 },
+          "animation": {
+            "type": "spritesheet",
+            "frames": 4,
+            "frameDuration": 11,
+            "loop": false,
+            "notes": "Wird pro besuchter Zelle in BFS-Reihenfolge abgespielt. Frame-Auswahl per frameIndex = Math.floor(elapsed / frameDuration) % frames."
+          }
+        },
+        {
+          "id": "anim-signal-glow-ring",
+          "filename": "bordcomputer/anim-signal-glow-ring.png",
+          "purpose": "Kurzer Glow-Ring wenn Signal am Ausgang ankommt (Erfolgsfeedback). 6 Frames.",
+          "dimensions": { "width": 384, "height": 64 },
+          "animation": {
+            "type": "spritesheet",
+            "frames": 6,
+            "frameDuration": 40,
+            "loop": false,
+            "notes": "Einmalig abspielen wenn outputValue gesetzt wird."
+          }
+        }
+      ]
+    },
+
+    {
+      "group": "UI-Chrome",
+      "notes": "Dekorative Elemente für den Gesamtrahmen. Alle optional – prozedurales Fallback ist die bestehende CSS-basierte Lösung.",
+      "items": [
+        {
+          "id": "chrome-header-stripe",
+          "filename": "bordcomputer/chrome-header-stripe.png",
+          "purpose": "Horizontal wiederholbarer Streifen für die Beschriftungszeile (Spalten A–E, Zeilen 0–4). Dunkle Metallleiste mit Warnmarkierungen.",
+          "dimensions": { "width": 64, "height": 20 },
+          "animation": null,
+          "notes": "Wiederholbar (tileable) in X-Richtung."
+        },
+        {
+          "id": "chrome-rivet",
+          "filename": "bordcomputer/chrome-rivet.png",
+          "purpose": "Einzelner Schraubenkopf/Niete für Zell-Ecken. Wird vier Mal pro Zelle gerendert (optional, da cell-bg-default die Nieten integriert).",
+          "dimensions": { "width": 6, "height": 6 },
+          "animation": null
+        }
+      ]
+    }
+
+  ],
+
+  "integrationGuide": {
+    "replacementFile": "client/minigames/bordcomputer-sprite-ui.js",
+    "entryPoint": "export function mount(root, task, ctx) { ... }",
+    "drawingOrder": [
+      "1. c2d.fillRect (Hintergrundfarbe C.bg)",
+      "2. drawImage(cell-bg-default | cell-bg-locked | cell-bg-gate) je Zelle",
+      "3. c2d.save() + rotate(cell.rotation × Math.PI/2) + drawImage(channel-*) + c2d.restore()",
+      "4. globalCompositeOperation='source-atop' + fillStyle=stateColor → drawImage(glow-*)",
+      "5. drawImage(gate-*) für jedes board.gates[i]",
+      "6. Port-Stümpfe per Canvas-Stroke (oder drawImage gate-port-stummel)",
+      "7. Beschriftungen per c2d.fillText (coordLabel, Gatternamen, Input-Werte)",
+      "8. drawImage(marker-arrow-*) für INPUT_A, INPUT_B, OUTPUT",
+      "9. if (cell.locked) drawImage(icon-lock) oben-rechts in der Zelle",
+      "10. Signal-Animation: runSignalAnimation() setzt signalCells; je Zelle in signalCells → glow-State='active'"
+    ],
+    "stateColorMap": {
+      "wireActive":   "#9bbf6a  (signalCells.has(ck))",
+      "wireDimmed":   "rgba(54,208,224,0.18)  (signalCells !== null && !active)",
+      "wireLocked":   "rgba(138,141,134,0.28) (cell.locked && signalCells !== null)",
+      "wireDefault":  "#36d0e0  (kein Signal-Overlay aktiv)",
+      "wireCornerM":  "#f2c014  (CORNER_M, kein Signal-Overlay)"
+    },
+    "debugOverlay": "bordcomputer-ui.js exportiert die Debug-Funktionen nicht separat. Die Debug-Schicht (drawDebugLayer) ist vollständig in die mount()-Closure integriert und übernimmt automatisch lastEvalResult aus dem Prüfen-Button. Ein Sprite-Renderer kann drawDebugLayer() analog implementieren."
+  }
+}
