@@ -27,8 +27,6 @@ Diese Datei ist die Arbeitsgrundlage für Claude Code. Sie beschreibt Architektu
 project-daedalus/
   CLAUDE.md                 diese Datei
   README.md                 Kurzanleitung und Einsatz im Unterricht
-  REVIEW.md                 Bericht des ersten Review-Durchgangs
-  TASKS.md                  Backlog mit Abnahmekriterien (T1 bis T6 erledigt)
   package.json
   server/
     index.js                HTTP + WebSocket, statische Auslieferung, /qr, Rollenvergabe, Tick-Verteilung
@@ -80,6 +78,7 @@ project-daedalus/
     GAME_DESIGN.md          Spielmechanik im Detail
     VISUAL_DESIGN.md        Kunststil, verbindlich
     mockups/                statische Mock-ups von Host und Controller
+    archive/                historische Logs und veraltete Dokumente (nur zur Referenz)
 ```
 
 ## Hauptkomponenten
@@ -209,7 +208,7 @@ Das Spiel ist klassenfertig (Stand 18.06.2026). Lauffähig sind: Server mit auto
 
 Der Spielablauf: Erst sammelt sich die Crew in der Lobby (Smartphones scannen den QR, geben einen Namen ein), dann startet die Lehrkraft am Leitstand das Spiel. Der Server setzt jede Person als Operator einer Station oder als Co-Pilot ein. Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor und rotiert die Rollen; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus, setzt die Grundschwierigkeit und holt die Crew mit „Zurück zur Lobby“ für einen neuen Anlauf zurück.
 
-Erledigt sind alle Tickets T1 bis T6 (siehe `TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und Durchläufe mit mehreren Controllern für Sieg- und Niederlage-Pfad. Offen bleiben nur echte Assets in den Slots unter `assets/` (das Spiel läuft prozedural ohne sie).
+Erledigt sind alle Tickets T1 bis T6 (siehe `docs/archive/TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und Durchläufe mit mehreren Controllern für Sieg- und Niederlage-Pfad. Offen bleiben nur echte Assets in den Slots unter `assets/` (das Spiel läuft prozedural ohne sie).
 
 ### Spielkern-Stellschrauben
 
