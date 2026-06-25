@@ -60,7 +60,10 @@ export default {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;
     const bits = lvl === 1 ? 4 : 8; // Stufe 1: 4 Bit, sonst 8 Bit
     const displayBase = lvl >= 2 ? 16 : 10; // ab Stufe 2 nennt das Ziel in Hex
-    const target = randomInt(rng, 0, (1 << bits) - 1);
+    // Level 1: (1 << 4) - 1 = 15
+    // Level 2+: Festes Limit von 129
+    const maxTarget = lvl === 1 ? (1 << bits) - 1 : 129;
+    const target = randomInt(rng, 0, maxTarget);
     return {
       prompt: "Stelle den Zielcode über die Bit-Schalter im Dualsystem ein.",
       level: lvl,

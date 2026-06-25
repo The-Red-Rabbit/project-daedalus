@@ -1,135 +1,155 @@
-# Spieldesign des kooperativen Lernspiels
+# Spieldesign Daedalus (Entwurf der Überarbeitung)
 
-Arbeitsstand für die multimediale Modulprüfung Medientechnik (E-Phase). Dieses Dokument beschreibt Struktur und Mechaniken so weit, dass daraus ein erstes lauffähiges MVP entstehen kann. Es ist bewusst nicht vollständig: Stationen und Mini-Spiele sind jeweils an einem Beispiel ausgearbeitet, der Rest ist als Muster angelegt.
+Stand: 25.06.2026. Dieser Entwurf ersetzt das bisherige `docs/GAME_DESIGN.md`. Er beschreibt die überarbeitete Fassung des kooperativen Lernspiels für die multimediale Modulprüfung Medientechnik (Einführungsphase). Sobald du ihn freigibst, installiert ihn das Prompt-Paket P1 als neue `docs/GAME_DESIGN.md`, und alle weiteren Prompts beziehen sich darauf.
+
+Offene Zahlenwerte sind als „Vorschlag“ markiert. Sie sind Startwerte fürs Balancing (Paket P6) und noch keine Festlegung.
 
 ## 1. Überblick
 
-Die Klasse navigiert gemeinsam ein Raumschiff durch ein Asteroidenfeld. Laptop und Beamer zeigen das Schiff, die Smartphones der Lernenden werden über einen QR-Code zu Steuerungsstationen. Jede Station steht für eine Funktion an Bord und enthält ein Mini-Spiel, das einen Unterrichtsinhalt aufgreift. Das Spiel tritt an die Stelle der klassischen Ergebnissicherung am Ende einer Unterrichtsreihe.
+Die Klasse navigiert gemeinsam das Raumschiff Daedalus durch ein Asteroidenfeld. Laptop und Beamer bilden den Host und zeigen Brücke und Leitstand, die Smartphones der Lernenden werden über einen QR-Code zu Stationen. Jede Station trägt ein Mini-Spiel, das einen Unterrichtsinhalt sichert. Das Spiel ersetzt die klassische Ergebnissicherung am Ende einer Unterrichtsreihe.
+
+Die technische Grundlage bleibt: ein Node-Server hält den autoritativen Zustand, die Clients senden Eingaben und rendern. Architektur und Konventionen stehen in `CLAUDE.md`, der Kunststil in `docs/VISUAL_DESIGN.md`. Beide bleiben verbindlich.
 
 ## 2. Lernziel und Einordnung
 
-Das Spiel sichert behandelten Stoff, es führt ihn nicht ein. Die beiden ausgearbeiteten Mini-Spiele liegen in der Einführungsphase: der Tiefpassfilter in Themenfeld 2 (Filter und Verstärker), die logischen Gatter in Themenfeld 3 (Digitaltechnik). Die Lehrkraft spielt keine eigene Station, sondern führt als Kommandant und beobachtet, steuert und differenziert über den Leitstand.
+Das Spiel sichert behandelten Stoff, es führt ihn nicht ein. Die Mini-Spiele liegen in der Einführungsphase: logische Gatter und Zahlensysteme in Themenfeld 3 (Digitaltechnik), Filter und Bauteilkunde in Themenfeld 2 (Filter und Verstärker). Die Lehrkraft (im Folgenden LK) spielt keine Station. Sie führt als Kommandant über den Leitstand: starten, takten, differenzieren, beobachten.
 
-## 3. Rollen und Stationen
+## 3. Die Designwende: von Zeitdruck zu Entscheidung
 
-Jede Person besetzt genau eine Station und bedient deren Mini-Spiel auf dem Smartphone. Mögliche Stationen:
+Der bisherige Stand setzte auf permanenten Zeitdruck. Jede Person wiederholte bis zum Sektorwechsel ein zugewiesenes Mini-Spiel, und der Verfall der Stationen erzeugte Hektik. Das wird ersetzt.
 
-- Antrieb: hält das Schiff in Fahrt
-- Navigation: wählt den Kurs durch das Feld
-- Schilde: wehrt Asteroiden ab
-- Bordcomputer: logische Schaltungen (ausgearbeitetes Beispiel, siehe Abschnitt 10)
-- Sensorik: Signalfilter (Tiefpass)
-- Reaktor: verteilt Energie auf die Stationen
+Neu trifft jede Person laufend eine Entscheidung. Sie bleibt an ihrer Station, löst aber nicht stumpf dieselbe Aufgabe, sondern wählt in einem kleinen Menü, wozu ihre Lösung dient. Der Druck kommt aus knappen Ressourcen und gemeinsamer Abwägung, nicht aus einer ablaufenden Uhr. Das senkt die Hektik und hebt das Gespräch in der Crew.
 
-Schnelle Lernende erhalten eine Unterstützerrolle (Co-Pilot) und arbeiten einer ausgelasteten Station zu. Zwischen den Sektoren wechseln die Rollen, damit niemand dauerhaft am Rand steht.
+## 4. Das Stationsmenü (A, B, C)
 
-## 4. Geteilte Schiffswerte
+Jede Person hat eine feste Station (die Rollen rotieren beim Sektorwechsel) und auf dem Smartphone ein Menü mit drei Wegen:
 
-Drei Werte gelten für die ganze Gruppe und erzeugen den gemeinsamen Druck:
+- (A) Lösen für Energie: Die Stationsaufgabe lösen lädt die geteilte Energie und zählt sichtbar auf das eigene Beitragskonto.
+- (B) Lösen für die Sonderfunktion: Dieselbe Aufgabe lösen löst stattdessen die stationseigene Sonderfunktion aus (siehe Abschnitt 7).
+- (C) Abstimmung starten: Eine Person ruft die Crew zur Abstimmung über den Team-Joker (siehe Abschnitt 9).
 
-- Hülle: sinkt bei Asteroidentreffern, wenn die Schilde unten sind
-- Energie: wird von den Stationen verbraucht und vom Reaktor verteilt
-- Fortschritt: steigt nur, solange genug Stationen stabil laufen
+Die Aufgabe ist in (A) und (B) dieselbe. Der Unterschied liegt allein darin, wohin die Lösung wirkt. So entsteht eine fachlich gleiche, strategisch verschiedene Wahl.
 
-## 5. Rundenablauf (Sektoren)
+## 5. Die drei Schiffswerte, neu definiert
 
-Das Spiel läuft in Echtzeit, die Lehrkraft taktet es in Sektoren. Ein Sektor wiederholt sich, bis das Ziel erreicht ist.
+Drei Werte gelten für die ganze Crew.
 
-```mermaid
-flowchart TD
-  A[Auftrag: Kommandant startet den Sektor] --> B[Stationen arbeiten parallel]
-  B --> C[Kopplung und Druck: Fortschritt nur bei genug stabilen Stationen]
-  C --> D[Sektorwechsel: Rollen rotieren, Schwierigkeit anpassen]
-  D -->|neuer Sektor| A
-```
+**Fortschritt** ist der zurückgelegte Weg durch den aktuellen Sektor. Er füllt sich fortlaufend, und zwar umso schneller, je höher die Energie steht. Bei 100 Prozent ist der Sektor geschafft. Das Schiff wartet dann, bis die LK den nächsten Sektor freigibt (Abschnitt 6).
 
-## 6. Mechaniken gegen Passivität und Wartezeit
+**Hülle** ist die gemeinsame Gesundheit. Asteroiden schlagen über die Zeit zufällig ein und ziehen Hülle ab. Repariert wird sie beim Sektorwechsel automatisch ein Stück, durch den Team-Joker und durch die Sonderfunktion der Bordcomputer-Station. Erreicht die Hülle null, ist das Spiel verloren. Die Hülle ist die einzige Niederlagebedingung.
 
-- Kopplung: Das Schiff kommt nur voran, wenn mehrere Stationen zugleich stabil sind. Drei aktive Personen reichen nicht.
-- Sichtbarer Leerlauf: Ein geteilter Wert sinkt, sobald eine Station unbesetzt bleibt. Untätigkeit trifft die ganze Gruppe.
-- Aufgabenpool: Aufgaben werden dynamisch verteilt, statt feste Runden mit Wartezeit zu erzeugen.
-- Unterstützerrolle: Wer schnell löst, hilft einer anderen Station, statt zu warten.
-- Kommunikation: Weil Stationen voneinander abhängen, gehört das Ansagen von Ereignissen zur Aufgabe.
+**Energie** ist das Tempo des Schiffs. Sie sinkt langsam über die Zeit und zusätzlich bei Fehlversuchen in den Mini-Spielen. Sie steigt, wenn Stationen über Weg (A) gelöst werden. Wenig Energie heißt langsames Schiff. Ein langsames Schiff braucht länger durch den Sektor und ist damit länger den Asteroiden ausgesetzt. So koppelt die Energie indirekt an das Überleben, ohne selbst eine Niederlagebedingung zu sein.
 
-## 7. Adaptive Schwierigkeit
+### Warum die ganze Crew gebraucht wird (gegen Trittbrettfahren)
 
-Jedes Mini-Spiel kennt drei Stufen. Die Lehrkraft setzt eine Grundschwierigkeit, das System justiert pro Station nach dem Tempo nach. Wer schnell löst, bekommt dichtere Aufgaben. Wer mehr Zeit braucht, erhält gestufte Hilfen. Die Stufen sind fachlich begründet (Beispiel in Abschnitt 10).
+Der Mechanismus arbeitet mit positiver Verstärkung statt mit Strafe. Jede gelöste Aufgabe füllt die geteilte Energie und erscheint zusätzlich als Plus auf dem persönlichen Beitragskonto, das die Brücke je Crewmitglied anzeigt. Sichtbarer Beitrag motiviert, ohne dass Untätigkeit unmittelbar bestraft wird.
 
-## 8. Technische Architektur
+Scheitern kann die Crew trotzdem gemeinsam. Die Asteroiden sind eine äußere Uhr. Nur genügend Reparaturen (über Weg B und den Joker) und genügend Tempo (über Energie aus Weg A) halten die Hülle über null. Sitzen zu viele zurück, fehlt beides: das Schiff bleibt langsam, die Belastung dauert länger, die Hülle verliert das Rennen. Geht das Spiel so verloren, zeigt die Brücke die Ursache deutlich: die leere Hülle und ein Beitragsbild, in dem die Schieflage ablesbar ist. Die Niederlage ist damit nie willkürlich, sondern als Folge zu geringer gemeinsamer Arbeit erkennbar.
 
-Browserbasiert mit WebSockets. Der Server hält den Spielzustand verbindlich, die Clients sind schlank.
+## 6. Sektorablauf
 
-```mermaid
-flowchart LR
-  QR[QR-Code, Beitritt im WLAN] --> P[Smartphones, Controller je Station]
-  P <-->|WebSocket| S[Server, autoritative Logik]
-  S -->|Bildschirm| H[Host am Beamer, Schiff und Leitstand]
-  L[Lehrkraft, Kommandant] --> H
-```
+Ein Sektor läuft, bis der Fortschritt 100 Prozent erreicht. Dann hält das Schiff an einer Sektorgrenze. Jede Person bestätigt am Smartphone „bereit“. Die LK sieht am Leitstand, wer schon bereit ist, und startet den nächsten Sektor von Hand. Mit dem Start beginnt der Fortschritt wieder bei 0, die Hülle erhält ihre automatische Teil-Reparatur, und die Rollen rotieren, damit niemand dauerhaft an derselben Station bleibt. Nach dem letzten Sektor folgt der Sieg.
 
-Beitritt: Der Host startet einen Raum und zeigt einen QR-Code mit der Beitritts-URL (Server-Adresse im WLAN plus Raumcode). Das Smartphone öffnet die Seite und übernimmt eine Station.
+Der manuelle Start gibt der LK die Taktung zurück. Sie kann eine Pause zum Besprechen einlegen, langsame Lernende abholen oder zügig weiterziehen.
 
-Zustand: Der Server tickt mit fester Rate (etwa 10 Hz), aktualisiert die geteilten Werte, prüft die Kopplung und sendet Updates. Die Phones senden nur Eingaben, der Server bewertet sie.
+## 7. Stationen und Mini-Spiele
 
-Nachrichten (Auszug):
+Vier Stationen, jede mit drei Schwierigkeitsstufen. Die LK setzt eine Grundstufe, das System justiert pro Person nach dem Tempo nach.
 
-- Client an Server: `beitritt`, `stationswahl`, `eingabe`, `loesungsversuch`
-- Server an Client: `zustand` (Host erhält die Gesamtansicht, das Phone seine Stationsansicht), `ereignis`
+**Bleiben unverändert:**
 
-## 9. Mini-Spiel-Schnittstelle
+- **Bordcomputer** (Themenfeld 3, logische Gatter): Auf einem Feld mit 5 x 5 Kacheln rotiert der Spieler Kacheln mit Leitungen bis der richtige Signalfluss von den Einhängen zum Ausgang hergestellt ist. Rückmeldung erst nach dem Bestätigen, ein Fehlversuch kostet Energie. Das blockt blindes Probieren.
+- **Navigation** (Themenfeld 3, Zahlensysteme): einen Zielcode (ab Stufe 2 hexadezimal) ohne Live-Dezimalanzeige in Bits umrechnen und über Bit-Schalter einstellen. Die im Klassentest als zu schwer gemeldeten Hex-Aufgaben fängt jetzt der Hilfe-Button ab (Abschnitt 8).
 
-Jede Station lädt ein Mini-Spiel-Modul, das eine gemeinsame Schnittstelle erfüllt. So lassen sich neue Mini-Spiele anstecken, ohne den Kern zu ändern.
+**Werden ersetzt:**
 
-```ts
-interface MiniSpiel {
-  id: string;                       // z. B. "bordcomputer"
-  station: string;                  // Anzeigename der Station
-  erzeugeAufgabe(stufe: 1 | 2 | 3): Aufgabe;
-}
+- **Sensorik**, neu „Filter auswählen“ (Themenfeld 2, ersetzt den alten Tiefpassfilter): Ein Asteroid sendet auf einer zufälligen Frequenz (niedrig, mittel oder hoch). Die Person wählt den passenden Filtertyp, um diese Frequenz zu isolieren: Hochpass, Tiefpass oder Bandpass. Die Bauteilgrößen ergeben sich aus der Grenzfrequenz und sollen im Kopf lösbar sein.
+  - Konstruktionshinweis fürs Kopfrechnen: Die exakte Formel `fc = 1 / (2·π·R·C)` ist mit dem 2·π unhandlich. Das Mini-Spiel nutzt die Faustformel `fc ≈ 0,16 / (R·C)` und bietet Bauteile in Zehnerstufen an (zum Beispiel R = 1 kΩ und C = 1 µF ergeben rund 160 Hz). So bleibt die Rechnung eine saubere Kopfrechnung.
+  - Stufen (Vorschlag): Stufe 1 nur den Filtertyp zur Frequenz wählen. Stufe 2 zusätzlich ein Bauteil so wählen, dass die Grenzfrequenz passt. Stufe 3 Bandpass mit unterer und oberer Grenze.
+- **Reaktor**, neu „Bauteile austauschen“ (ersetzt die alte kooperative Reaktanz-Kalibrierung): Ein offenes Panel zeigt mehrere verdrahtete Schaltsymbole. Eine Meldung nennt das defekte Bauteil, zum Beispiel „Tausche den defekten WIDERSTAND aus“. Die Person erkennt das richtige Schaltsymbol und tauscht es. Diese Station ist jetzt ein Einzelspiel.
+  - Stufen (Vorschlag): Stufe 1 aus vier deutlich verschiedenen Symbolen das genannte wählen. Stufe 2 aus mehr und ähnlicheren Symbolen (etwa Widerstand, Kondensator, Spule, Diode, Transistor). Stufe 3 ist statt des Bauteils eine Funktion oder ein Defektbild genannt, aus dem das Bauteil zu erschließen ist.
 
-interface Aufgabe {
-  prompt: string;                   // Einkleidung der Aufgabe
-  render(container: HTMLElement): void;   // Controller-UI aufbauen
-  pruefe(eingabe: Eingabe): Ergebnis;
-}
+Hinweis zur Kooperation: Mit dem Wegfall der alten Reaktor-Station gibt es keine Station mehr, die zwei Personen technisch zum Reden zwingt. Die Kooperation trägt jetzt der Hilfe-Button, die Joker-Abstimmung und das geteilte Hüllenziel mit Zuruf (so abgestimmt).
 
-interface Ergebnis {
-  geloest: boolean;
-  teiltreffer: number;              // 0..1, fuer Live-Feedback
-  hinweis?: string;                 // optionaler Tipp
-}
-```
+### Sonderfunktionen je Station (Menü B), Vorschlag
 
-Bei einem gelösten Versuch meldet das Modul `geloest: true`. Der Server hebt daraufhin den Status der Station und passt die geteilten Werte an. Der Wert `teiltreffer` speist die Live-Rückmeldung, etwa den Anteil korrekter Zeilen einer Wahrheitstabelle.
+Jede Station besitzt genau einen strategischen Hebel. So lohnt es sich, an jeder Station gelegentlich (B) statt (A) zu wählen.
 
-## 10. Beispielstation: Bordcomputer (logische Gatter)
+| Station | Sonderfunktion (B) | Wirkung |
+| --- | --- | --- |
+| Reaktor (Bauteile austauschen) | Energieschub | Sofort-Plus auf die geteilte Energie über den normalen Ladewert hinaus |
+| Sensorik (Filter auswählen) | Asteroiden filtern | Für kurze Zeit schlagen weniger Asteroiden ein |
+| Navigation (Zahlensysteme) | Kurskorrektur | Sofort-Schub auf den Fortschritt |
+| Bordcomputer (logische Gatter) | Schadenskontrolle | Repariert ein Stück Hülle |
 
-Einkleidung: „Das Schott darf nur öffnen, wenn beide Schlüssel stecken.“ Dahinter steht ein UND-Gatter. Die Alltagssituation macht das Ziel auch für ein Publikum ohne Fachhintergrund verständlich.
+Damit deckt jede Station einen der vier Hebel ab: Energie, Asteroidenrate, Fortschritt, Hülle. Die Crew muss abwägen, welcher Hebel gerade fehlt.
 
-Mechanik: Der Controller zeigt zwei Eingänge A und B sowie eine Wahrheitstabelle mit den Spalten Ist und Ziel. Die Lernenden wählen das passende Bauteil, sodass die Ist-Spalte der Ziel-Spalte entspricht. Die Tabelle färbt jede Zeile sofort grün oder rot.
+## 8. Kooperation: der Hilfe-Button
 
-Schwierigkeitsstufen:
+Jede Station hat einen Hilfe-Button. Drückt eine Person ihn, wählt der Server zufällig eine andere gerade aktive Person aus. Diese bekommt auf ihrem Smartphone einen Hinweis eingeblendet, den sie der hilfesuchenden Person laut zuruft. Der Hinweis ist auf das Mini-Spiel der hilfesuchenden Person zugeschnitten, denn der Server kennt deren Aufgabe und Lösung.
 
-- Stufe 1: ein Gatter mit zwei Eingängen, das richtige Bauteil aus vier Optionen wählen
-- Stufe 2: zwei Gatter hintereinander auf eine vorgegebene Tabelle bringen
-- Stufe 3: aus der Zieltabelle die Schaltung ableiten und mit dem KV-Diagramm vereinfachen
+Beispiele für Hinweise je Mini-Spiel (Vorschlag):
 
-Validierung: Das Modul vergleicht die erzeugte Wahrheitstabelle mit der Zieltabelle. Das ist deterministisch und ohne Sonderfälle prüfbar, was die Station als ersten MVP-Baustein eignet.
+- Zahlensysteme: die ersten drei korrekten Bits der Lösung, oder bei einer Hex-Zahl deren Dezimalwert.
+- Bauteile austauschen: das Schaltsymbol des gesuchten Bauteils in Worten (z. B. Beim Widerstand: "Leeres Rechteck").
+- Filter auswählen: die Faustformel und die Zielfrequenz nennen.
+- Bordcomputer: Erkläung des aktuell vorliegenden logischen Gatters (z. B. Beim AND-Gatter: "Beide Eingänge müssen an sein, damit der Ausgang an ist").
 
-## 11. MVP-Umfang
+Gegen Dauergebrauch greift allein ein Cooldown (so abgestimmt): Nach einer Hilfe ist der Button für eine kurze Zeit gesperrt (Vorschlag: 20 Sekunden). Es kostet nichts, der Schritt bleibt also positiv besetzt. Der Hinweis geht bewusst über Zuruf von Mensch zu Mensch, nicht über den Bildschirm, weil das Reden in der Crew gewollt ist.
 
-Für den ersten lauffähigen Stand genügt:
+## 9. Joker-System
 
-- Beitritt per QR-Code in einen Raum im lokalen WLAN
-- Host-Anzeige mit Schiff, den Werten Hülle und Fortschritt sowie dem Stationsstatus
-- zwei bis vier Stationen, davon der Bordcomputer voll spielbar
-- ein Mini-Spiel (Bordcomputer, Stufe 1) über die Schnittstelle aus Abschnitt 9
-- Leitstand mit manuellem Auslösen einer Asteroidenwelle und einem Schieberegler für die Grundschwierigkeit
+Über Menü (C) ruft eine Person die Crew zur Abstimmung. Jeder Spieler kann im gesamten Spiel maximal einmal zur Abstimmung aufrufen. Alle stimmen kurz am Smartphone innerhalb von 10 Sekunden  ab. Bei einfacher Mehrheit löst der Joker aus und repariert die Hülle ein Stück (Vorschlag: plus 25 Prozentpunkte). Die Abstimmung und das Abstimmungsergebnis wird live auf dem Beamer angezeigt. Die Zahl der Joker pro Spiel ist begrenzt (Vorschlag: 3 für einen vollen Lauf).
 
-## 12. Offene Punkte
+Der Joker lohnt sich nur, weil die Hülle beim Sektorwechsel ohnehin ein Stück repariert wird (Vorschlag: plus 15 Prozentpunkte). Daraus entsteht eine echte Abwägung für die Crew, wann der beste Zeitpunkt gekommen ist einen Joker einzusetzen.
 
-- Geräteausstattung und WLAN-Stabilität im Klassenraum
-- Anzahl der Stationen im Verhältnis zur Klassengröße
-- Barrierearmut (Farben nicht als alleinige Information, Schriftgrößen)
-- Umfang der Erprobung und Form der Datenerfassung für die Reflexion
-```
+## 10. Audio
+
+Zwei Bereiche kommen dazu.
+
+Erstens der **Zustand der Hülle**, über die schon vorhandenen Voice-Lines im Asset-Ordner. Heute liegen sie als `.wav` vor, sind aber nirgends eingebunden (das Manifest ist leer, und die Engine erwartet bisher cue-benannte `.mp3`). Sie werden als Cues verdrahtet:
+
+- `AI_welcome`: beim Eintreffen in der Lobby oder beim Start.
+- `AI_hull_low`: wenn die Hülle in den Warnbereich fällt (< 50%).
+- `AI_hull_crit`: wenn die Hülle kritisch wird (< 10%).
+- `AI_external_damage`: bei einem schweren Asteroidentreffer.
+
+Dafür liest die Engine künftig auch `.wav`, das Manifest wird gepflegt, und die Stimmen werden gedrosselt, damit sie sich nicht überlagern oder zu oft auslösen.
+
+Zweitens der **Fortschritt im Sektor**, über neue Cues: ein kurzer Ton bei Meilensteinen (Vorschlag: 50 Prozent und 95 Prozent) macht hörbar, wie weit der Sektor ist.
+
+## 11. Lernerfolg sichtbar machen
+
+Die Prüfungsaufgabe verlangt, den Lernerfolg sichtbar zu machen. Das Spiel zeigt ihn auf mehreren Ebenen, die ohne zusätzliche Datenerfassung auskommen: den Stationsstatus auf der Brücke, das persönliche Beitragskonto je Crewmitglied, den Punktestand und die Highscore-Liste am Ende. Die LK liest am Leitstand live mit, wer welche Station wie sicher löst.
+
+Eine tiefere Datenerfassung (etwa Fehlerquoten je Themenfeld und Person für die Nachbesprechung) ist möglich, aber bewusst nicht Teil dieser Überarbeitung. Sie steht als optionaler späterer Schritt unter den offenen Punkten. Die schriftliche Reflexion zur Aufgabenstellung entsteht separat.
+
+## 12. Stellschrauben (Vorschlagswerte)
+
+Die folgenden Startwerte gehören gebündelt nach oben in `server/game.js` und werden in Paket P6 am Spiel justiert. Sie sind hier nur Ausgangspunkt.
+
+- Asteroidenschaden je Treffer und Trefferrate
+- Energie: Ladewert je Lösung (A), langsamer Schwund über die Zeit, Abzug je Fehlversuch
+- Fortschritt: Tempo je Energiestufe
+- Hülle: automatische Reparatur beim Sektorwechsel (plus 15), Joker-Reparatur (plus 25)
+- Sonderfunktionen: Höhe des Energieschubs, Dauer der gesenkten Asteroidenrate, Höhe des Fortschritt-Schubs, Hüllen-Reparatur per Bordcomputer
+- Joker: Anzahl je Spiel (3), Mehrheit (einfach)
+- Hilfe-Button: Cooldown (20 Sekunden)
+- Sektoren je Lauf
+
+## 13. Was sich gegenüber dem alten Stand ändert
+
+- Der Timer und der dauernde Stabilitätsverfall entfallen. An ihre Stelle tritt das Menü mit Energie, Hülle und Fortschritt.
+- Die alte kooperative Reaktor-Kalibrierung entfällt. Der Reaktor wird zum Einzelspiel „Bauteile austauschen“.
+- Der alte Tiefpassfilter entfällt. Die Sensorik wird zu „Filter auswählen“.
+- Energie hängt nicht mehr an einer Reaktor-Kalibrierung, sondern an Weg (A) aller Stationen.
+- Der Sektorwechsel ist nicht mehr automatisch, sondern wird von der LK ausgelöst.
+- Die Hülle ist die einzige Niederlagebedingung, mit lesbarer Ursache.
+
+Diese Änderungen brechen einen Teil der bestehenden Tests. Jedes Umsetzungspaket aktualisiert die betroffenen Tests mit.
+
+## 14. Offene Punkte
+
+- Genaue Zahlenbalance (Paket P6), geprüft über Komplettdurchläufe mit Bots für Sieg und Niederlage.
+- Optionale Datenerfassung je Themenfeld und Person für die Nachbesprechung.
+- Barrierearmut: Farbe nie als alleinige Information, ausreichend große Schrift auf dem Smartphone.
