@@ -56,10 +56,12 @@ project-daedalus/
     minigames/
       registry.js           Mini-Spiele anmelden und nachschlagen
       _template.js          Vorlage für ein neues Mini-Spiel
-      bordcomputer.js       logische Schaltung aus Gattern bauen (Themenfeld 3)
-      tiefpassfilter.js     RC-Tiefpass, Kapazität aus zwei Bauteilen bauen (Themenfeld 2)
+      bordcomputer-logic.js Kachelrouting-Logik, DOM-frei (Server + Client)
+      bordcomputer-ui.js    Canvas-UI des Bordcomputers (nur Browser)
+      bordcomputer.js       verbindet Logik + UI zur Mini-Spiel-Schnittstelle
+      tiefpassfilter.js     RC-Tiefpass (Themenfeld 2) → wird durch „Filter auswählen" ersetzt
       zahlensysteme.js      Dualsystem über Bit-Schalter, ohne Live-Dezimalanzeige (Themenfeld 3)
-      reaktor.js            kooperative Reaktanz-Kalibrierung zu zweit (Themenfeld 2)
+      reaktor.js            Reaktanz-Kalibrierung (Themenfeld 2) → wird durch „Bauteile austauschen" ersetzt (Einzelspiel)
     styles/
       tokens.css            Designtokens der Grimdark-Palette
       controller.css        Panel- und Instrumentenoptik der Stationen
@@ -87,7 +89,7 @@ project-daedalus/
 2. Protokoll (shared). Ein einziger Ort für Nachrichtentypen, Phasen (`PHASES`) und Konstanten, damit Server und Client nie auseinanderlaufen. Dazu der deterministische Zufall.
 3. Host, zwei Ansichten. Die **Brücke** (`/beamer`) rendert die First-Person-Szene auf Canvas (Blick durchs Cockpitfenster, Sterne und Asteroiden kommen auf die Crew zu), zeigt HUD, Stationsstatus, die Wartelobby mit Beitritts-QR und das Ergebnis und spielt die Klangkulisse – sie steuert nichts. Der **Leitstand** (`/dashboard`) gehört der Lehrkraft: Spiel starten, Schwierigkeit setzen, Asteroidenwellen, neuer Anlauf sowie Stationen und Crew live. Beide verbinden sich als Rolle `host`; `/host` ist nur eine Auswahlseite, die zu beiden verlinkt.
 4. Controller-Client. Zeigt vor dem Start die Wartelobby, dann die zugewiesene Station, lädt deren Mini-Spiel über die Registry und schickt Eingaben an den Server.
-5. Mini-Spiele. Eigenständige Module hinter einer gemeinsamen Schnittstelle. Jedes erzeugt zufällige Aufgaben und prüft Eingaben. Der Bordcomputer ist ein Konstruktionsspiel: aus mehreren Gattern eine kleine Schaltung bauen, die eine Ziel-Wahrheitstabelle erzeugt (Rückmeldung erst nach dem Bestätigen, ein Fehlversuch kostet Stabilität). Der **Reaktor** ist die kooperative Station: zwei Personen kalibrieren gemeinsam eine Reaktanz, ihren geteilten Zustand hält der Server (siehe „Kooperative Station“).
+5. Mini-Spiele. Eigenständige Module hinter einer gemeinsamen Schnittstelle. Jedes erzeugt zufällige Aufgaben und prüft Eingaben. Der **Bordcomputer** ist ein Kachelrouting-Puzzle: Kacheln auf einem 5×5-Feld drehen, bis das Signal von den Eingängen durch Gatter zum Ausgang fließt und der Zielwert erreicht wird. Die Logik liegt in `bordcomputer-logic.js` (DOM-frei, Server + Client), die Canvas-UI in `bordcomputer-ui.js`. **Tiefpassfilter** (Station Sensorik) und **Reaktor** werden in einem späteren Paket durch neue Mini-Spiele ersetzt – das Design steht in `docs/GAME_DESIGN.md`, Abschnitt 7.
 6. Designsystem. Farbtokens, Material- und Lichtregeln aus `docs/VISUAL_DESIGN.md`, der Audio-Cue-Katalog und die Asset-Slots.
 
 ## Datenfluss und Protokoll
@@ -137,21 +139,13 @@ export default {
 
 `howto` ist eine kurze Anleitung (Felder `goal` und `example`, reiner Text, DOM-frei). Der Controller zeigt sie als Anleitungskarte (Station, Ziel, Beispiel, Knopf „Los") vor dem Mounten – beim Erststart und nach jeder Rotation, nicht nach dem blossen Loesen. Alle vier Mini-Spiele bringen sie mit.
 
-Wichtig: `generate` und `validate` müssen DOM-frei bleiben, denn der Server ruft sie zur autoritativen Prüfung ebenfalls auf. Nur `mount` darf das Document benutzen. Registriert sind derzeit `bordcomputer`, `tiefpassfilter`, `zahlensysteme` und `reaktor` (kooperativ).
+Wichtig: `generate` und `validate` müssen DOM-frei bleiben, denn der Server ruft sie zur autoritativen Prüfung ebenfalls auf. Nur `mount` darf das Document benutzen. Registriert sind derzeit `bordcomputer`, `tiefpassfilter`, `zahlensysteme` und `reaktor`; `tiefpassfilter` und `reaktor` werden in einem späteren Paket durch neue Module ersetzt (siehe `docs/GAME_DESIGN.md`, Abschnitt 7).
 
 `solve(task)` ist optional und ebenfalls DOM-frei. Es liefert eine korrekte Eingabe zur Aufgabe und liegt damit am selben Ort wie `validate`. Die Debug-Bots (`server/bots.js`) und die Tests nutzen es, statt das Lösungswissen zu duplizieren. Alle vier registrierten Mini-Spiele stellen es bereit.
 
-### Kooperative Station (Reaktor)
+### Kooperative Station (Reaktor) – wird ersetzt
 
-Der Reaktor weicht vom Einzelspiel-Muster ab: Zwei Personen kalibrieren gemeinsam eine kapazitive Reaktanz `Xc = 1 / (2*pi*f*C)` auf einen Zielwert aus dem Seed. Der Operator stellt die Kapazitaet C (Parameter `a`), der Co-Pilot die Frequenz f (Parameter `b`). Niemand sieht den Wert der anderen Person, beide sehen Ziel und Naehe – dieser Informationsspalt zwingt zum Reden. Gewertet wird ueber **Hold-to-Lock** (nach dem Vorbild des SOS-Schiebers): halten beide den kombinierten Wert kurz (`HOLD_SEC`) im Toleranzband, rastet die Kalibrierung von selbst ein – keine Bestaetigung. Nach dem Einrasten zeigt die Station eine kurze sichtbare Pause (`RELOCK_PAUSE_SEC`), dann rollt ein frisches Ziel. Solo-Fallback: eine Person bedient beide Regler und haelt allein. Das Toleranzband ist bewusst grosszuegig (Stufe 1 weit, Stufe 3 eng aber fair), damit blinde Koordination ueber Reden und Peilton gelingt.
-
-Den geteilten Zustand (beide Reglerwerte, Ziel, Haltezeit) haelt der Server in `server/game.js` je Koop-Station; er rechnet Reaktanz und Naehe ueber `validate` autoritativ nach und treibt das Einrasten im Tick voran (`advanceCoop`). Eine Koop-Station traegt in `STATIONS` `coop: true`. Das Modul bringt zusaetzlich mit:
-
-- `coop: true` am Modul (Kennzeichnung).
-- `solveFor(task, partner, param)`: DOM-freie Reglerposition fuer den eigenen Parameter, die das Ziel trifft, wenn die andere Seite ihren Wert haelt. Nutzen die Bots, um sich schrittweise auf die Ziellinie zuzubewegen und dort zu halten.
-- `mount` nutzt `ctx.coopInput(param, value)` (stufenlose Eingabe) und liefert im Handle ein `onState(state)`, das der Controller bei jedem `state` aufruft (Live-Match, Ziel, Solo, Haltefortschritt, eingerastet). Eine grosse Zustandszeile (zu hoch / zu niedrig / im Band) und ein sich fuellender Einrast-Ring zeigen das Halten; ein erfolgreiches Einrasten rollt nach der Pause ein neues Ziel ueber den `state` (kein Neu-Mounten). Der Server schickt beim Einrasten zusaetzlich ein `result` an die beteiligten Controller (Ton und Rueckmeldung).
-
-Die Energie ist an den Reaktor gekoppelt: stabil kalibriert haelt oder hebt sie sich, sonst faellt sie. Ohne Koop-Station bleibt Energie konstant (kein Reaktor), die drei Einzelspiele bleiben unveraendert.
+> **Hinweis:** Das aktuelle `reaktor.js` (Hold-to-Lock-Kalibrierung, zwei Regler, geteilter Serverzustand) wird in einem späteren Paket durch das Einzelspiel „Bauteile austauschen" abgelöst. Die Beschreibung des neuen Designs steht in `docs/GAME_DESIGN.md`, Abschnitt 7. Der bestehende Code läuft unverändert, bis das Ersatz-Modul fertig ist.
 
 Ein neues Mini-Spiel hinzufügen:
 
@@ -204,21 +198,21 @@ Starter unter `/host` öffnen (verlinkt Brücke und Leitstand), die Brücke unte
 
 ## Aufgaben für Claude Code
 
-Das Spiel ist klassenfertig (Stand 18.06.2026). Lauffähig sind: Server mit autoritativer Logik und Phasen, die Brücke (`/beamer`) mit First-Person-Cockpitszene, HUD, Reaktor-Anzeige und Wartelobby samt großem Beitritts-QR, der Leitstand (`/dashboard`) mit Steuerung und Live-Monitor, der Controller mit Beitritt, Wartelobby und Rollenanzeige, vier voll spielbare Mini-Spiele (Bordcomputer als Schaltungsbau, Themenfeld 3; Tiefpassfilter auf der Station Sensorik mit Kapazität aus zwei Bauteilen, Themenfeld 2; Zahlensysteme auf der Station Navigation ohne Live-Dezimalanzeige und ab Stufe 2 hexadezimal, Themenfeld 3; Reaktor als kooperative Station zu zweit, Themenfeld 2), die geschichtete Audio-Engine und die Designtokens. Die drei Einzelspiele belohnen Verständnis statt Probieren: Rückmeldung erst nach dem Bestätigen, ein Fehlversuch kostet Stabilität.
+Das Spiel ist klassenfertig (Stand 18.06.2026). Lauffähig sind: Server mit autoritativer Logik und Phasen, die Brücke (`/beamer`) mit First-Person-Cockpitszene, HUD und Wartelobby samt großem Beitritts-QR, der Leitstand (`/dashboard`) mit Steuerung und Live-Monitor, der Controller mit Beitritt, Wartelobby und Rollenanzeige, vier spielbare Mini-Spiele (Bordcomputer: Kachelrouting-Puzzle mit Gattern, Themenfeld 3; Tiefpassfilter auf Station Sensorik, Themenfeld 2; Zahlensysteme auf Station Navigation, Themenfeld 3; Reaktor als bisherige kooperative Station, Themenfeld 2), die geschichtete Audio-Engine und die Designtokens.
 
-Der Spielablauf: Erst sammelt sich die Crew in der Lobby (Smartphones scannen den QR, geben einen Namen ein), dann startet die Lehrkraft am Leitstand das Spiel. Der Server setzt jede Person als Operator einer Station oder als Co-Pilot ein. Stationen müssen durch wiederholtes Lösen stabil gehalten werden, sonst verfallen sie und die Hülle leidet. Der Fortschritt steigt nur, wenn die Mehrheit der besetzten Stationen stabil ist. Volle Fortschrittsleiste führt in den nächsten Sektor und rotiert die Rollen; nach dem letzten Sektor folgt der Sieg, bei leerer Hülle die Niederlage. Der Leitstand löst Asteroidenwellen aus, setzt die Grundschwierigkeit und holt die Crew mit „Zurück zur Lobby“ für einen neuen Anlauf zurück.
+> **Der Spielablauf wird überarbeitet.** Das alte Modell (stationärer Stabilitätsverfall, Fortschritt an Mehrheit stabiler Stationen gekoppelt, automatischer Sektorwechsel bei 100 %, Energie an Reaktorkalibrierung gebunden) wird durch den menügesteuerten Loop aus `docs/GAME_DESIGN.md` ersetzt: drei Schiffswerte (Energie, Hülle, Fortschritt), Stationsmenü A/B/C, manueller Sektorstart durch die Lehrkraft, Hilfe-Button und Joker-Abstimmung. **`docs/GAME_DESIGN.md` ist die verbindliche Quelle für das Design; CLAUDE.md beschreibt nur Architektur und Konventionen.**
 
 Erledigt sind alle Tickets T1 bis T6 (siehe `docs/archive/TASKS.md`), abgesichert durch Logik-Tests (`npm test`) und Durchläufe mit mehreren Controllern für Sieg- und Niederlage-Pfad. Offen bleiben nur echte Assets in den Slots unter `assets/` (das Spiel läuft prozedural ohne sie).
 
 ### Spielkern-Stellschrauben
 
-Die Abstimmwerte liegen gebündelt oben in `server/game.js`: `ASTEROID_DAMAGE`, `STABLE_DECAY_PER_SEC`, `HULL_DRAIN_CRITICAL`, `HULL_DRAIN_WARN`, `GRACE_SEC`, `PROGRESS_PER_SEC`, `MAX_SECTORS`, `SUPPORTER_BOOST`, `WRONG_SOLVE_PENALTY` (Stabilitätsabzug bei einem Fehlversuch), `FAST_SOLVE_SEC`, `SLOW_SOLVE_SEC`, `ENERGIE_GAIN_PER_SEC` und `ENERGIE_DRAIN_PER_SEC` (Energie-Kopplung an den Reaktor). Wer Tempo, Druck oder Spiellänge ändern will, justiert sie dort. Die Tickrate steht als `TICK_HZ` in `shared/protocol.js`.
+Die Abstimmwerte liegen gebündelt oben in `server/game.js`. Die Tickrate steht als `TICK_HZ` in `shared/protocol.js`.
 
-Aktuelles Tempo-Profil „mittel“ (spürbar ruhiger als der erste Stand, aber noch fordernd): Eine Station hält nach dem Lösen rund 16 Sekunden stabil (`STABLE_DECAY_PER_SEC = 0.0625`), eine unbesetzte Station zieht 1,0/s, eine besetzte-instabile 0,35/s von der Hülle. `GRACE_SEC = 6` gibt nach dem Start und nach jedem Sektorwechsel eine Schonzeit von sechs Sekunden, in der nichts verfällt und die Hülle hält (der Fortschritt darf laufen); die Brücke zeigt sie als Anflug-Hinweis. Die Schonzeit gilt jeweils für den gerade beginnenden Zeitschritt, damit `GRACE_SEC` auch genau so lange wirkt.
+> **Hinweis:** Mehrere Konstanten gehören zum alten Modell und werden im Rahmen der Überarbeitung angepasst oder entfernt: `STABLE_DECAY_PER_SEC`, `HULL_DRAIN_CRITICAL`, `HULL_DRAIN_WARN`, `PROGRESS_PER_SEC` (Mehrheitskopplung), `ENERGIE_GAIN_PER_SEC` und `ENERGIE_DRAIN_PER_SEC` (Reaktorkopplung). Die Zielwerte des neuen Modells stehen in `docs/GAME_DESIGN.md`, Abschnitt 12. Weiterhin gültig bleiben `ASTEROID_DAMAGE`, `GRACE_SEC`, `MAX_SECTORS`, `FAST_SOLVE_SEC`, `SLOW_SOLVE_SEC`, `WRONG_SOLVE_PENALTY` und `SUPPORTER_BOOST`.
 
 ### Solo-Testen mit Bots (Entwicklung)
 
-Damit der ganze Ablauf allein an Brücke und Leitstand sichtbar wird, gibt es serverseitige Testspieler in `server/bots.js`. Sie sind ein reines Entwicklerwerkzeug, hinter der Umgebungsvariable `DAEDALUS_DEBUG` verborgen (sonst tauchen sie nie auf). Mit `DAEDALUS_DEBUG=1 npm start` erscheint im Leitstand ein abgesetzter Debug-Bereich „Simulierte Spieler“ (Anzahl wählen, hinzufügen, alle entfernen). Die Bots treten über dieselbe `addParticipant`-Logik bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben über den echten `solve`-Pfad (kein Sonderweg): meist korrekt, gelegentlich daneben, damit der Verfall sichtbar wird. Im Roster sind sie mit „🤖“ markiert. Steuern darf sie nur der Host (`debugBots`-Nachricht), und nur wenn der Server mit `DAEDALUS_DEBUG` läuft.
+Damit der ganze Ablauf allein an Brücke und Leitstand sichtbar wird, gibt es serverseitige Testspieler in `server/bots.js`. Sie sind ein reines Entwicklerwerkzeug, hinter der Umgebungsvariable `DAEDALUS_DEBUG` verborgen (sonst tauchen sie nie auf). Mit `DAEDALUS_DEBUG=1 npm start` erscheint im Leitstand ein abgesetzter Debug-Bereich „Simulierte Spieler“ (Anzahl wählen, hinzufügen, alle entfernen). Die Bots treten über dieselbe `addParticipant`-Logik bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben über den echten `solve`-Pfad (kein Sonderweg): meist korrekt, gelegentlich daneben. Im Roster sind sie mit „🤖“ markiert. Steuern darf sie nur der Host (`debugBots`-Nachricht), und nur wenn der Server mit `DAEDALUS_DEBUG` läuft.
 
 ### Mini-Spiel-Teststand (/dev, Entwicklung)
 
@@ -226,18 +220,22 @@ Um ein einzelnes Mini-Spiel zu testen, ohne durch Lobby und Rotation zu spielen,
 
 `client/dev/dev.js` baut die Liste aus `STATIONS` (keine Doppelpflege) und zeigt je Station die Stufen 1 bis 3. Ein Klick öffnet `/controller?station=<id>&level=<n>` in einem neuen Tab. Der Controller erkennt die Query-Parameter (`devSeat`) und schickt statt des Namens-Beitritts die Nachricht `debugSeat`; danach laufen `assignment`, `taskAssigned` und `state` wie im echten Spiel und das Mini-Spiel mountet sofort.
 
-Serverseitig setzt `game.debugSeat(id, label, station, level)` den Teilnehmer gezielt als Operator auf die Station (über `seatParticipant`, das einen vorhandenen Operator zum Co-Pilot macht) und schaltet das Spiel in den **Sandbox**-Zustand: Phase `running`, aber im Tick ruhen Hüllenverlust, Spielende und Sektorfluss, damit eine einzelne Teststation nicht wegrotiert oder das Schiff aufreibt. Stabilitätsverfall und die Energie-Kopplung laufen weiter, damit sich das Mini-Spiel echt anfühlt. Für eine Koop-Station (`coop: true`) ergänzt der Server über `bots.spawnPartner(stationId)` automatisch einen Bot als Co-Pilot, sodass der Match-Wert lebt und der Koop-Pfad allein testbar ist. Den Sandbox-Zustand verlassen `startGame` (echter Start) und `reset` (zurück zur Lobby).
+Serverseitig setzt `game.debugSeat(id, label, station, level)` den Teilnehmer gezielt als Operator auf die Station (über `seatParticipant`, das einen vorhandenen Operator zum Co-Pilot macht) und schaltet das Spiel in den **Sandbox**-Zustand: Phase `running`, aber im Tick ruhen Hüllenverlust, Spielende und Sektorfluss, damit eine einzelne Teststation nicht wegrotiert oder das Schiff aufreibt. Für eine Koop-Station (`coop: true`) ergänzt der Server über `bots.spawnPartner(stationId)` automatisch einen Bot als Co-Pilot, sodass der Match-Wert lebt und der Koop-Pfad allein testbar ist. Den Sandbox-Zustand verlassen `startGame` (echter Start) und `reset` (zurück zur Lobby).
 
 ### Highscore
 
 Der Server zählt jede erfolgreiche Lösung während der Phase `running` als Punkt (Einzel-Mini-Spiele und Reaktor-Einrastungen je +1). Der Punktestand steht in `shared.score` und wird im `hostState` mitgeschickt; die Brücke zeigt ihn als großes Panel oben mittig. Bei Sieg wird ein Eintrag (Punktzahl, Crewnamen, ISO-Zeitstempel) an `data/highscores.json` angehängt (erzeugt falls fehlend, corrupt-safe). Bei Niederlage wird nichts gespeichert. Nach jedem Spielende zeigt die Brücke statt des alten Ergebnisfensters eine sortierte Top-10-Liste (höchste Punktzahl zuerst, Gleichstand nach früherem Zeitstempel); der aktuelle Sieg-Eintrag ist cyan hervorgehoben. Die Phones zeigen nur einen kurzen Hinweis, auf die Brücke zu schauen. Das Modul `server/highscore.js` kapselt die Datei-IO; `data/` liegt in `.gitignore`. Tests: `test/highscore.test.js`.
 
-### Bekannte Lücken und mögliche nächste Schritte
+### Offene Arbeitspakete (Revision)
 
-- Energie ist an den Reaktor gekoppelt (stabil kalibriert hält/hebt, sonst fällt). Tiefere Wechselwirkungen (Energie als Ressource, die Stationen speist) sind noch offen.
-- Weitere in `docs/GAME_DESIGN.md` genannte Stationen fehlen noch: Antrieb und Schilde. Der Reaktor ist als kooperative Station umgesetzt. Neue Stationen entstehen als Mini-Spiele über die Schnittstelle plus Eintrag in `STATIONS`.
-- Echte Assets in den Slots unter `assets/`: das Cockpit der Brücke (`beamer-screen-overlay.png`) liegt vor; weitere Sprites und Samples je Cue (im Manifest eintragen) fehlen noch.
-- Optional: mehrere Räume statt eines einzigen (der Server hält aktuell genau ein Spiel) und eine einfache Datenerfassung für die Reflexion.
+Die laufende Überarbeitung folgt `docs/GAME_DESIGN.md`. Noch ausstehend:
+
+- **Spielmechanik** (menügesteuerter Loop, Stationsmenü A/B/C, Energiemodell, manueller Sektorstart, Hilfe-Button, Joker-Abstimmung, Sonderfunktionen je Station).
+- **Mini-Spiele ersetzen**: `tiefpassfilter.js` → „Filter auswählen", `reaktor.js` → „Bauteile austauschen" (Einzelspiel).
+- **Audio**: Voice-Lines aus `assets/audio/` einbinden (`AI_welcome`, `AI_hull_low`, `AI_hull_crit`, `AI_external_damage`), `.wav`-Unterstützung in der Engine, Fortschritts-Cues bei Meilensteinen.
+- **Balance** (Paket P6): Zahlenwerte nach Komplettdurchläufen mit Bots abstimmen.
+- **Echte Assets**: weitere Sprites und Samples je Cue (im Manifest eintragen).
+- Optional: mehrere Räume statt eines einzigen, einfache Datenerfassung je Themenfeld und Person für die Nachbesprechung.
 
 ### Projektstand (Git)
 
