@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daedalus · Start</title>
+<link rel="stylesheet" href="/styles/tokens.css">
+<style>
+  html, body { margin: 0; min-height: 100%; background: var(--bg-void); color: var(--text-primary); font-family: var(--font-ui); }
+  body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; box-sizing: border-box; }
+  .kicker { font-size: 13px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); }
+  h1 { font-size: 44px; font-weight: 600; letter-spacing: 0.06em; margin: 6px 0 6px; }
+  .lead { color: var(--text-muted); max-width: 620px; text-align: center; line-height: 1.5; margin-bottom: 28px; }
+  .cards { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+  a.card { text-decoration: none; color: var(--text-primary); width: 300px; background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 6px; padding: 24px; transition: border-color 0.15s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -3px 8px rgba(0,0,0,0.4); }
+  a.card.beamer { border-top: 4px solid var(--accent-cyan); }
+  a.card.dashboard { border-top: 4px solid var(--accent-orange); }
+  a.card:hover { border-color: var(--accent-orange); }
+  a.card.beamer:hover { border-color: var(--accent-cyan); }
+  .card .role { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+  .card .name { font-size: 24px; font-weight: 600; margin: 4px 0 10px; }
+  .card .desc { font-size: 14px; color: var(--text-muted); line-height: 1.5; }
+  .note { margin-top: 26px; font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="kicker">Medientechnik · Ergebnissicherung</div>
+  <h1>Daedalus</h1>
+  <p class="lead">Zwei Ansichten teilen sich den Host: die Brücke kommt auf den Beamer, der Leitstand bleibt bei der Lehrkraft. Öffne beide (am besten in getrennten Fenstern).</p>
+  <div class="cards">
+    <a class="card beamer" href="/beamer" target="_blank" rel="noopener">
+      <div class="role">Für den Beamer</div>
+      <div class="name">Brücken-Ansicht</div>
+      <div class="desc">Blick durchs Cockpitfenster ins Asteroidenfeld, Schiffswerte und der Beitritts-QR für die Klasse. Auf den Projektor legen (Vollbild).</div>
+    </a>
+    <a class="card dashboard" href="/dashboard" target="_blank" rel="noopener">
+      <div class="role">Für die Lehrkraft</div>
+      <div class="name">Leitstand</div>
+      <div class="desc">Spiel starten, Schwierigkeit setzen, Asteroidenwellen auslösen und Stationen wie Crew live verfolgen. Auf dem Laptop behalten.</div>
+    </a>
+  </div>
+  <p class="note">Tipp: zuerst die Brücke auf den Beamer ziehen und einmal „Ton an“ tippen, dann am Leitstand das Spiel starten.</p>
+</body>
+</html>

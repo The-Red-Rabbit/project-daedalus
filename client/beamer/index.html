@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daedalus · Brücke</title>
+<link rel="stylesheet" href="/styles/tokens.css">
+<style>
+  html, body { margin: 0; height: 100%; background: var(--bg-void); color: var(--text-primary); font-family: var(--font-ui); overflow: hidden; }
+  #stage { position: relative; width: 100vw; height: 100vh; }
+  #scene { display: block; width: 100%; height: 100%; }
+  #overlay { position: absolute; inset: 0; pointer-events: none; padding: 18px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; }
+  #overlay[hidden] { display: none; }
+  .panel { background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 4px; padding: 12px 14px; pointer-events: auto; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .values { display: flex; gap: 20px; }
+  .value { min-width: 150px; }
+  .vhead { display: flex; justify-content: space-between; align-items: baseline; }
+  .value .label { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .value b { font-family: var(--font-mono); font-size: 17px; color: var(--text-primary); }
+  .bar { height: 10px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
+  .bar > div { height: 100%; width: 0; transition: width 0.2s linear; }
+  .stations { display: flex; gap: 10px; flex-wrap: wrap; max-width: 70%; }
+  .station { min-width: 132px; }
+  .station .name { font-weight: 600; font-size: 15px; }
+  .station .status { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .station .who { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .station .stability { height: 5px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
+  .station .stability > div { height: 100%; width: 0; transition: width 0.2s linear; }
+  #banner { position: absolute; top: 92px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-yellow); color: var(--text-primary); font-size: 18px; letter-spacing: 0.04em; padding: 10px 20px; border-radius: 3px; opacity: 0; transition: opacity 0.25s; }
+  #banner.show { opacity: 1; }
+  /* Sektorwechsel-Zwischenbild: grosser, ruhiger Beat, aus der Entfernung lesbar. */
+  #sector-interstitial { position: absolute; inset: 0; z-index: 9; display: flex; align-items: center; justify-content: center; background: rgba(8,9,11,0.72); }
+  #sector-interstitial[hidden] { display: none; }
+  .si-card { text-align: center; background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 38px 64px; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+  .si-kicker { font-size: 15px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+  .si-sector { font-size: 72px; font-weight: 700; letter-spacing: 0.06em; margin: 6px 0 6px; color: var(--accent-cyan); }
+  .si-rotate { font-size: 20px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-yellow); }
+  /* Schonzeit-Hinweis: ruhiger Anflug nach Start und Sektorwechsel. */
+  #grace-hint { position: absolute; bottom: 132px; left: 50%; transform: translateX(-50%); z-index: 9; background: var(--bg-panel-2); border: 1px solid var(--accent-cyan); color: var(--text-primary); font-size: 16px; letter-spacing: 0.04em; padding: 8px 18px; border-radius: 3px; }
+  #grace-hint[hidden] { display: none; }
+
+  /* Score-Panel: grosse Punktanzeige oben mittig, waehrend des Einsatzes gut lesbar. */
+  #score-panel { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); z-index: 8; background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-yellow); border-radius: 6px; padding: 10px 32px 14px; text-align: center; min-width: 160px; box-shadow: 0 6px 24px rgba(0,0,0,0.5); }
+  #score-panel[hidden] { display: none; }
+  .score-kicker { font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-muted); }
+  .score-value { font-size: 56px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-yellow); line-height: 1.1; }
+
+  /* Reaktor: Ziel und Naehe gross und aus der Entfernung lesbar. Nach unten verschoben, um Platz fuer das Score-Panel zu lassen. */
+  #reaktor { position: absolute; top: 218px; left: 50%; transform: translateX(-50%); z-index: 6; width: min(640px, 74vw); background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 16px 24px 18px; text-align: center; box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 8px 30px rgba(0,0,0,0.5); }
+
+  /* Abstimmungs-Panel: prominente Einblendung, aus dem Klassenraum lesbar. */
+  #vote-panel { position: absolute; top: 218px; left: 50%; transform: translateX(-50%); z-index: 9; width: min(640px, 74vw); background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-yellow); border-radius: 6px; padding: 20px 32px 22px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.6); }
+  #vote-panel[hidden] { display: none; }
+  .vp-kicker { font-size: 13px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--accent-yellow); margin-bottom: 8px; }
+  .vp-initiator { font-size: 20px; color: var(--text-muted); margin-bottom: 10px; }
+  .vp-timer { font-size: 80px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-yellow); line-height: 1; margin-bottom: 8px; }
+  .vp-tally { font-size: 22px; color: var(--text-muted); }
+
+  /* Joker-Pips im HUD */
+  .joker-pips { display: flex; gap: 5px; margin-top: 7px; }
+  .joker-pip { width: 16px; height: 16px; background: var(--accent-yellow); border-radius: 2px; transition: background 0.3s; }
+  .joker-pip.used { background: var(--edge); }
+  #reaktor[hidden] { display: none; }
+  #reaktor .rk-kicker { font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); }
+  #reaktor .rk-target { font-size: 42px; font-weight: 600; font-family: var(--font-mono); margin: 4px 0 14px; }
+  #reaktor .rk-target b { color: var(--accent-yellow); }
+  #reaktor .rk-bar { position: relative; height: 28px; background: var(--bg-void); border: 1px solid var(--edge); overflow: hidden; }
+  #reaktor .rk-bar > div { height: 100%; width: 0; background: var(--accent-cyan); transition: width 0.15s linear, background 0.2s; }
+  #reaktor .rk-actual { margin-top: 10px; font-size: 15px; color: var(--text-muted); font-family: var(--font-mono); }
+  #reaktor.locked { border-top-color: var(--status-stable); }
+  #reaktor.locked .rk-bar > div { background: var(--status-stable); }
+  .bottombar { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; }
+  .join { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--text-muted); }
+  .join .join-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .join .join-url { color: var(--accent-cyan); font-family: var(--font-mono); margin-top: 2px; }
+  .qr { background: #fff; padding: 6px; border-radius: 3px; line-height: 0; }
+  .qr svg { display: block; width: 96px; height: 96px; }
+
+  /* Lobby: grosser QR, Beitritts-URL und die schon anwesende Crew. */
+  #lobby { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; background: rgba(8,9,11,0.78); }
+  #lobby[hidden] { display: none; }
+  .lobby-card { display: flex; gap: 40px; align-items: center; background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 36px 44px; max-width: 1100px; }
+  .lobby-left { text-align: center; }
+  .lobby-qr { background: #fff; padding: 12px; border-radius: 4px; line-height: 0; }
+  .lobby-qr svg { display: block; width: 260px; height: 260px; }
+  .lobby-url { margin-top: 12px; font-family: var(--font-mono); color: var(--accent-cyan); font-size: 16px; }
+  .lobby-right { min-width: 340px; }
+  .lobby-kicker { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+  .lobby-title { font-size: 40px; font-weight: 600; letter-spacing: 0.06em; margin: 4px 0 10px; }
+  .lobby-remark { font-size: 15px; color: var(--accent-yellow); line-height: 1.5; margin-bottom: 12px; }
+  .lobby-lead { color: var(--text-muted); line-height: 1.5; margin-bottom: 18px; }
+  .lobby-crew-head { font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+  .lobby-crew { display: flex; flex-wrap: wrap; gap: 8px; min-height: 40px; }
+  .crew-chip { font-size: 15px; background: var(--bg-panel-2); border: 1px solid var(--edge); border-left: 3px solid var(--accent-green); border-radius: 3px; padding: 6px 12px; }
+  .lobby-empty { color: var(--text-muted); font-style: italic; }
+  .lobby-wait { margin-top: 20px; font-size: 15px; color: var(--accent-yellow); letter-spacing: 0.02em; }
+
+  #result { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.82); z-index: 10; overflow-y: auto; }
+  #result[hidden] { display: none; }
+  .hs-card { background: var(--bg-panel); border: 1px solid var(--edge); border-top: 4px solid var(--accent-cyan); border-radius: 6px; padding: 26px 36px 28px; width: min(860px, 92vw); box-sizing: border-box; }
+  .hs-card.lost { border-top-color: var(--accent-red); }
+  .hs-phase { font-size: 36px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-cyan); }
+  .hs-card.lost .hs-phase { color: var(--accent-red); }
+  .hs-sub { font-size: 16px; color: var(--text-muted); margin: 6px 0 20px; }
+  .hs-table { width: 100%; border-collapse: collapse; font-size: 17px; }
+  .hs-table th { text-align: left; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); padding: 0 10px 8px; border-bottom: 1px solid var(--edge); }
+  .hs-table th:nth-child(2) { text-align: right; }
+  .hs-table td { padding: 9px 10px; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  .hs-table td:first-child { color: var(--text-muted); font-size: 14px; font-family: var(--font-mono); width: 42px; }
+  .hs-table td:nth-child(2) { font-family: var(--font-mono); font-size: 24px; font-weight: 700; color: var(--accent-yellow); text-align: right; width: 80px; }
+  .hs-table td:last-child { font-size: 13px; color: var(--text-muted); white-space: nowrap; width: 160px; }
+  .hs-table tr.hs-current td { color: var(--accent-cyan); }
+  .hs-table tr.hs-current td:nth-child(2) { color: var(--accent-cyan); }
+  .hs-table tr.hs-current { background: rgba(54,208,224,0.07); outline: 1px solid rgba(54,208,224,0.25); }
+  .hs-empty { color: var(--text-muted); font-style: italic; font-size: 15px; padding: 16px 0; }
+  .hs-hint { color: var(--text-muted); font-size: 13px; margin-top: 18px; text-align: center; }
+  /* Niederlage-Panel: Huellenursache und Beitraege, aus dem Klassenraum lesbar */
+  #loss-panel { margin-bottom: 22px; }
+  .loss-reason { font-size: 20px; color: var(--accent-red); letter-spacing: 0.04em; font-weight: 600; margin-bottom: 16px; }
+  .loss-crew { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .loss-entry { display: flex; align-items: baseline; justify-content: space-between; background: var(--bg-panel-2); border: 1px solid var(--edge); border-left: 4px solid var(--text-muted); padding: 10px 14px; }
+  .loss-name { font-size: 22px; font-weight: 600; }
+  .loss-contrib { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--accent-cyan); }
+  .loss-contrib-label { font-size: 12px; color: var(--text-muted); display: block; text-align: right; }
+  .loss-entry.top { border-left-color: var(--accent-cyan); }
+
+  #btn-audio { position: fixed; right: 16px; bottom: 16px; z-index: 12; font-family: var(--font-ui); font-size: 13px; color: var(--text-primary); background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 3px; padding: 8px 12px; cursor: pointer; }
+  #btn-audio:hover { border-color: var(--accent-orange); }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="scene"></canvas>
+
+    <div id="lobby">
+      <div class="lobby-card">
+        <div class="lobby-left">
+          <div id="lobby-qr" class="lobby-qr"></div>
+          <div class="lobby-url" id="lobby-url">…</div>
+        </div>
+        <div class="lobby-right">
+          <div class="lobby-kicker">Einsatzbesprechung</div>
+          <div class="lobby-title">Daedalus</div>
+          <div class="lobby-remark"><u>Wichtig:</u> Dein Smartphone muss mit dem Schul-WLAN verbunden sein.</div>
+          <div class="lobby-lead">Scanne den QR-Code mit dem Smartphone und tritt der Crew bei. Sobald alle an Bord sind, startet die Lehrkraft den Einsatz.</div>
+          <div class="lobby-crew-head">Crew an Bord (<span id="lobby-count">0</span>)</div>
+          <div class="lobby-crew" id="lobby-crew"><span class="lobby-empty">Noch niemand beigetreten …</span></div>
+          <div class="lobby-wait">▣ Warten auf Start durch die Lehrkraft</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="result" hidden>
+      <div class="hs-card" id="hs-card">
+        <div class="hs-phase" id="hs-phase">Sieg</div>
+        <div class="hs-sub" id="hs-sub"></div>
+        <!-- Niederlage: Beitragsschnappschuss gross und aus der Entfernung lesbar -->
+        <div id="loss-panel" hidden></div>
+        <table class="hs-table">
+          <thead><tr><th>Rang</th><th>Punkte</th><th>Crew</th><th>Datum</th></tr></thead>
+          <tbody id="hs-tbody"></tbody>
+        </table>
+        <div class="hs-hint">Die Lehrkraft startet am Leitstand einen neuen Anlauf.</div>
+      </div>
+    </div>
+
+    <div id="score-panel" hidden>
+      <div class="score-kicker">Punkte</div>
+      <div class="score-value" id="score-value">0</div>
+    </div>
+
+    <div id="banner"></div>
+    <div id="grace-hint" hidden></div>
+
+    <div id="sector-interstitial" hidden>
+      <div class="si-card">
+        <div class="si-kicker">Sektor erreicht</div>
+        <div class="si-sector" id="si-sector">Sektor 2</div>
+        <div class="si-rotate">Rollenwechsel · neue Stationen</div>
+      </div>
+    </div>
+
+    <div id="vote-panel" hidden>
+      <div class="vp-kicker">Abstimmung läuft</div>
+      <div class="vp-initiator" id="vp-initiator"></div>
+      <div class="vp-timer" id="vp-timer">10</div>
+      <div class="vp-tally" id="vp-tally"></div>
+    </div>
+
+    <div id="reaktor" hidden>
+      <div class="rk-kicker">Reaktor · Kalibrierung</div>
+      <div class="rk-target">Ziel <b id="rk-target">…</b></div>
+      <div class="rk-bar"><div id="rk-match"></div></div>
+      <div class="rk-actual" id="rk-actual"></div>
+    </div>
+
+    <div id="overlay" hidden>
+      <div class="topbar">
+        <div class="panel">
+          <div style="font-size:13px; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted);">Daedalus</div>
+          <div id="sector" style="font-size:22px; font-weight:600;">Sektor 1</div>
+          <div id="crew" style="font-size:13px; color:var(--text-muted); margin-top:2px;">Crew 0</div>
+        </div>
+        <div class="panel values">
+          <div class="value"><div class="vhead"><span class="label">Hülle</span><b id="n-huelle">100%</b></div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>
+          <div class="value"><div class="vhead"><span class="label">Energie</span><b id="n-energie">100%</b></div><div class="bar"><div id="v-energie" style="background:var(--accent-yellow);"></div></div></div>
+          <div class="value"><div class="vhead"><span class="label">Fortschritt</span><b id="n-fortschritt">0%</b></div><div class="bar"><div id="v-fortschritt" style="background:var(--accent-cyan);"></div></div></div>
+          <div class="value"><div class="vhead"><span class="label">Joker</span><b id="n-joker">◈ 3</b></div><div class="joker-pips" id="joker-pips"></div></div>
+        </div>
+      </div>
+
+      <div class="bottombar">
+        <div class="panel stations" id="stations"></div>
+        <div class="panel join">
+          <div id="qr" class="qr"></div>
+          <div>
+            <div class="join-label">Nachzügler beitreten</div>
+            <div class="join-url" id="join-url">…</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button id="btn-audio">♪ Ton an</button>
+  </div>
+  <script type="module" src="/beamer/beamer.js"></script>
+</body>
+</html>

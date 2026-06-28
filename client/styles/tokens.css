@@ -1,0 +1,36 @@
+/* Designtokens fuer Daedalus. Industrieller Grimdark-Retrofuturismus.
+   Siehe docs/VISUAL_DESIGN.md. Akzentfarben kennzeichnen Funktion, nicht Dekoration. */
+:root {
+  /* Flaechen */
+  --bg-void: #0d0e10;
+  --bg-panel: #17191c;
+  --bg-panel-2: #1f2226;
+  --edge: #2b2e31;
+
+  /* Text */
+  --text-primary: #d7d9d2;
+  --text-muted: #8a8d86;
+
+  /* Material */
+  --steel: #3a4a5a;
+  --steel-dark: #232a30;
+  --rust: #6e4a2f;
+  --olive: #4b5320;
+  --mil-green: #5a6b3a;
+
+  /* Akzente nach Funktion */
+  --accent-orange: #e8761a; /* Warnung */
+  --accent-yellow: #f2c014; /* Hinweis */
+  --accent-red: #d23a36;    /* Notfall */
+  --accent-cyan: #36d0e0;   /* aktiver Status */
+  --accent-green: #9bbf6a;  /* stabiler Status */
+
+  /* Stationsstatus */
+  --status-stable: #9bbf6a;
+  --status-warn: #f2c014;
+  --status-critical: #d23a36;
+
+  /* Schrift */
+  --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}

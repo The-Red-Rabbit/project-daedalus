@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daedalus · Leitstand</title>
+<link rel="stylesheet" href="/styles/tokens.css">
+<style>
+  html, body { margin: 0; min-height: 100%; background: var(--bg-void); color: var(--text-primary); font-family: var(--font-ui); }
+  body { padding: 18px; box-sizing: border-box; }
+  .top { display: flex; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .brand { font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+  .title { font-size: 24px; font-weight: 600; letter-spacing: 0.04em; }
+  .pill { font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 12px; border-radius: 3px; border: 1px solid var(--edge); color: var(--bg-void); background: var(--accent-cyan); }
+  .pill.running { background: var(--status-stable); }
+  .pill.won { background: var(--accent-cyan); }
+  .pill.lost { background: var(--accent-red); }
+  .pill.lobby { background: var(--accent-yellow); }
+  .top .spacer { flex: 1; }
+  .conn { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px; }
+  .conn .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--status-stable); }
+  .conn.off .dot { background: var(--accent-red); }
+
+  .grid { display: grid; grid-template-columns: 320px 1fr 280px; gap: 16px; align-items: start; }
+  @media (max-width: 1100px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 4px; padding: 16px; }
+  .panel h2 { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); margin: 0 0 12px; }
+  .panel + .panel { margin-top: 16px; }
+
+  button { font-family: var(--font-ui); font-size: 14px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 10px 14px; cursor: pointer; }
+  button:hover:not(:disabled) { border-color: var(--accent-orange); }
+  button:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.55; }
+  .btn-start { width: 100%; font-size: 17px; letter-spacing: 0.05em; text-transform: uppercase; color: var(--bg-void); background: var(--accent-cyan); border: none; padding: 16px 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -3px 6px rgba(0,0,0,0.35); }
+  .btn-start:disabled { background: var(--bg-panel-2); color: var(--text-muted); box-shadow: none; }
+  .btn-row { display: flex; gap: 10px; }
+  .btn-row button { flex: 1; }
+  .field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 14px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  select { font-family: var(--font-ui); font-size: 14px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 8px 10px; cursor: pointer; }
+  input[type="number"] { font-family: var(--font-mono); font-size: 14px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; padding: 8px 10px; width: 72px; }
+  .hint { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-top: 12px; }
+
+  /* Debug-Bereich: klar als Entwicklerwerkzeug abgesetzt (gestrichelte Warnkante). */
+  .panel.debug { border-style: dashed; border-color: var(--accent-orange); }
+  .panel.debug h2 { color: var(--accent-orange); }
+  .panel.debug[hidden] { display: none; }
+  .debug-tag { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-orange); margin-bottom: 8px; }
+  .dev-link { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--edge); }
+  .dev-link a { color: var(--accent-cyan); text-decoration: none; font-size: 14px; font-weight: 600; }
+  .dev-link a:hover { color: var(--accent-orange); }
+
+  .value { margin-bottom: 12px; }
+  .vhead { display: flex; justify-content: space-between; align-items: baseline; }
+  .value .label { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+  .value b { font-family: var(--font-mono); font-size: 16px; }
+  .bar { height: 10px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 5px; }
+  .bar > div { height: 100%; width: 0; transition: width 0.2s linear; }
+
+  .station { padding: 12px 0; border-top: 1px solid var(--edge); }
+  .station:first-child { border-top: none; }
+  .station .row { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .station .name { font-weight: 600; font-size: 15px; }
+  .station .status { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .station .who { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .station .who b { color: var(--text-primary); font-weight: 600; }
+  .station .stability { height: 5px; background: var(--bg-void); border: 1px solid var(--edge); margin-top: 6px; }
+  .station .stability > div { height: 100%; width: 0; transition: width 0.2s linear; }
+
+  .crew { display: flex; flex-wrap: wrap; gap: 8px; }
+  .crew-chip { font-size: 13px; background: var(--bg-panel-2); border: 1px solid var(--edge); border-left: 3px solid var(--accent-green); border-radius: 3px; padding: 5px 10px; }
+  .crew-chip.supporter { border-left-color: var(--accent-yellow); }
+  .crew-chip small { color: var(--text-muted); }
+  .empty { color: var(--text-muted); font-style: italic; }
+
+  .qr { background: #fff; padding: 8px; border-radius: 3px; line-height: 0; display: inline-block; }
+  .qr svg { display: block; width: 200px; height: 200px; }
+  .join-url { margin-top: 10px; font-family: var(--font-mono); color: var(--accent-cyan); font-size: 14px; word-break: break-all; }
+</style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <div class="brand">Daedalus</div>
+      <div class="title">Leitstand</div>
+    </div>
+    <div class="pill lobby" id="phase-pill">Lobby</div>
+    <div id="sector" class="brand"></div>
+    <div class="spacer"></div>
+    <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">verbunden</span></div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <h2>Steuerung</h2>
+        <button id="btn-start" class="btn-start">Spiel starten</button>
+        <button id="btn-next-sector" class="btn-start" disabled style="margin-top:8px; background:var(--accent-green);">Nächsten Sektor starten</button>
+        <div id="ready-info" class="hint" style="display:none; margin-top:6px;"></div>
+        <div class="field">Grundstufe
+          <select id="sel-difficulty">
+            <option value="1">1 leicht</option>
+            <option value="2">2 mittel</option>
+            <option value="3">3 schwer</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button id="btn-event">Asteroidenwelle</button>
+          <button id="btn-reset">Zurück zur Lobby</button>
+        </div>
+        <div class="hint" id="hint">Warte, bis die Crew beigetreten ist, und starte dann den Einsatz. Die Schwierigkeit justiert sich danach pro Person nach dem Tempo. „Asteroidenwelle“ erhöht den Druck, „Zurück zur Lobby“ beginnt einen neuen Anlauf.</div>
+      </div>
+
+      <div class="panel">
+        <h2>Schiffswerte</h2>
+        <div class="value"><div class="vhead"><span class="label">Hülle</span><b id="n-huelle">100%</b></div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>
+        <div class="value"><div class="vhead"><span class="label">Energie</span><b id="n-energie">100%</b></div><div class="bar"><div id="v-energie" style="background:var(--accent-yellow);"></div></div></div>
+        <div class="value"><div class="vhead"><span class="label">Fortschritt</span><b id="n-fortschritt">0%</b></div><div class="bar"><div id="v-fortschritt" style="background:var(--accent-cyan);"></div></div></div>
+      </div>
+
+      <div class="panel" id="vote-panel">
+        <h2>Joker-Abstimmung</h2>
+        <div id="vote-content" style="font-size:13px; color:var(--text-muted);">–</div>
+      </div>
+
+      <div class="panel debug" id="debug" hidden>
+        <div class="debug-tag">⚠ Entwicklerwerkzeug</div>
+        <h2>Simulierte Spieler</h2>
+        <div class="field">Anzahl
+          <input type="number" id="bot-count" value="6" min="1" max="20">
+        </div>
+        <div class="btn-row">
+          <button id="btn-bots-spawn">Bots hinzufügen</button>
+          <button id="btn-bots-clear">Alle entfernen</button>
+        </div>
+        <div class="hint">Erzeugt serverseitige Testspieler, die wie echte Lernende beitreten, Rollen bekommen, mitrotieren und ihre Aufgaben selbst lösen. Im Roster mit „🤖“ markiert. Nur sichtbar, wenn der Server mit „DAEDALUS_DEBUG“ läuft.</div>
+        <div class="dev-link"><a href="/dev" target="_blank" rel="noopener">→ Mini-Spiel-Teststand öffnen</a></div>
+        <div class="hint">Setzt dich direkt auf eine einzelne Station, ohne Lobby und Rotation. Die Koop-Station bekommt automatisch einen Bot-Partner.</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <h2>Stationen</h2>
+        <div id="stations"></div>
+      </div>
+      <div class="panel">
+        <h2>Crew (<span id="crew-count">0</span>)</h2>
+        <div class="crew" id="crew"><span class="empty">Noch niemand beigetreten …</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Beitritt</h2>
+      <div id="qr" class="qr"></div>
+      <div class="join-url" id="join-url">…</div>
+      <div class="hint">Die Lernenden scannen diesen Code (auch groß auf dem Beamer) und treten mit ihrem Namen bei.</div>
+    </div>
+  </div>
+
+  <script type="module" src="/dashboard/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,726 @@
+/* Controller-Optik: dunkle Metallpanels, harte Kanten, funktionale Akzente. */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg-void);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  -webkit-user-select: none;
+  user-select: none;
+  padding-bottom: 70px;
+}
+#app { max-width: 480px; margin: 0 auto; }
+.screen { padding: 16px; }
+.title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 4px 0 14px;
+}
+.muted { color: var(--text-muted); }
+
+/* Stationsauswahl */
+.station-list { display: grid; gap: 10px; }
+.station-btn {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-orange);
+  border-radius: 0;
+  padding: 16px;
+  cursor: pointer;
+}
+.station-btn:active { background: var(--bg-panel-2); }
+
+/* Bordcomputer */
+.bc-scenario {
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-yellow);
+  padding: 12px;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.bc-label {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.bc-hintline { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; }
+.bc-gates { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
+.bc-gate {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  padding: 12px 0;
+  cursor: pointer;
+}
+.bc-gate.sel { border-color: var(--accent-cyan); color: var(--accent-cyan); background: var(--bg-panel-2); }
+
+/* Schaltungsbau: ein Panel je Slot (Gatter) mit fester Verdrahtung. */
+.bc-circuit { display: grid; gap: 10px; margin-bottom: 16px; }
+.bc-slot {
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-cyan);
+  padding: 10px 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+}
+.bc-slot-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; font-size: 14px; }
+.bc-slot-head b { font-family: var(--font-mono); letter-spacing: 0.04em; }
+.bc-wire { font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); }
+.bc-slot-gates { display: flex; flex-wrap: wrap; gap: 6px; }
+.bc-slot-gates .bc-gate { flex: 1 1 auto; min-width: 60px; padding: 10px 0; }
+
+.bc-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); margin-bottom: 12px; }
+.bc-table th { font-size: 12px; color: var(--text-muted); font-weight: 400; padding: 6px 0; }
+.bc-table td { text-align: center; padding: 10px 0; border-top: 1px solid var(--edge); }
+.bc-table tr.ok td { background: color-mix(in srgb, var(--status-stable) 14%, transparent); }
+.bc-table tr.bad td { background: color-mix(in srgb, var(--status-critical) 16%, transparent); }
+.bc-table .miss { color: var(--accent-red); font-weight: 500; }
+
+.bc-hint { min-height: 20px; font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+
+.bc-confirm {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg-void);
+  background: var(--accent-orange);
+  border: none;
+  padding: 14px 0;
+  cursor: pointer;
+}
+.bc-confirm:disabled {
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  cursor: not-allowed;
+}
+
+/* Tiefpassfilter (Station Sensorik) */
+.tp-canvas { width: 100%; display: block; border: 1px solid var(--edge); background: var(--bg-void); margin-bottom: 10px; }
+.tp-readout { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+.tp-readout b { font-family: var(--font-mono); color: var(--text-primary); }
+.tp-readout span:last-child b { color: var(--accent-yellow); }
+.tp-controls { display: grid; gap: 12px; margin-bottom: 14px; }
+.tp-row, .tp-fixed { display: flex; align-items: center; gap: 12px; }
+.tp-row-label { width: 18px; font-family: var(--font-mono); color: var(--text-muted); }
+.tp-row input[type="range"] { flex: 1; accent-color: var(--accent-cyan); }
+.tp-row-val { width: 84px; text-align: right; font-family: var(--font-mono); color: var(--accent-cyan); }
+.tp-fixed b { font-family: var(--font-mono); color: var(--text-primary); }
+/* Reihe/Parallel-Schalter fuer die beiden Kondensatoren */
+.tp-mode { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+.tp-mode .tp-row-label { width: 20px; }
+.tp-mode-btn {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 5px rgba(0, 0, 0, 0.45);
+}
+.tp-mode-btn.sel { border-color: var(--accent-cyan); color: var(--accent-cyan); background: var(--bg-panel-2); }
+
+/* Zahlensysteme (Station Navigation): Bit-Kippschalter */
+.zs-target { font-size: 14px; color: var(--text-muted); margin-bottom: 12px; }
+.zs-target b { font-family: var(--font-mono); color: var(--accent-yellow); font-size: 16px; }
+.zs-bits { display: flex; gap: 6px; margin-bottom: 12px; }
+.zs-bit {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 5px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.zs-weight { font-size: 11px; }
+.zs-state {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+  width: 100%;
+  text-align: center;
+  border-top: 1px solid var(--edge);
+  padding-top: 6px;
+}
+.zs-bit.on { color: var(--accent-green); border-color: var(--accent-green); }
+.zs-bit.on .zs-state { color: var(--accent-green); }
+.zs-readout { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+.zs-readout b { font-family: var(--font-mono); color: var(--text-primary); font-size: 16px; }
+.zs-bin { font-family: var(--font-mono); letter-spacing: 0.12em; }
+
+/* Bauteiltausch (Station Reaktor): Bauteil-Tiles in Elektroverteilerkasten */
+.bt-prompt-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-yellow);
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+.bt-prompt-kicker {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-yellow);
+  display: block;
+  margin-bottom: 4px;
+}
+.bt-prompt-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.03em;
+  line-height: 1.4;
+}
+.bt-scene {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  margin: 0 auto 10px;
+  aspect-ratio: 1;
+  background: url('/assets/sprites/bauteiltausch/background_empty_electric-box.webp') center / contain no-repeat;
+}
+.bt-grid {
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 14%;
+  right: 14%;
+  display: grid;
+  gap: 8px;
+  align-content: center;
+}
+.bt-comp {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 3px solid transparent;
+  cursor: pointer;
+  background: none;
+  border-radius: 2px;
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  transition: border-color 0.12s, box-shadow 0.12s, transform 0.08s;
+}
+.bt-comp:not(:disabled):active { transform: scale(0.93); }
+.bt-comp.sel {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 16px rgba(54,208,224,0.65), 0 0 0 1px rgba(54,208,224,0.3);
+}
+.bt-comp-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.bt-comp-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-panel);
+  border-color: var(--edge);
+}
+.bt-comp-symbol {
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  pointer-events: none;
+}
+
+/* Status-HUD am unteren Rand: Schiffshuelle und eigene Stationsstabilitaet */
+.hud {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-panel);
+  border-top: 1px solid var(--edge);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.hud-row { display: flex; align-items: center; gap: 10px; }
+.hud-row > span { min-width: 96px; text-transform: uppercase; letter-spacing: 0.04em; }
+.hud-row > b { min-width: 40px; text-align: right; font-family: var(--font-mono); color: var(--text-primary); }
+.hud .bar { flex: 1; height: 8px; background: var(--bg-void); border: 1px solid var(--edge); }
+.hud .bar > div { height: 100%; width: 0; background: var(--status-stable); transition: width 0.2s linear; }
+
+/* Lobby */
+body.has-topbar { padding-top: 52px; }
+.lobby .muted { margin-bottom: 18px; line-height: 1.5; }
+.lobby-name {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-cyan);
+  border-radius: 0;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.lobby-name:focus { outline: none; border-color: var(--accent-cyan); }
+
+/* Wartebildschirm vor dem Start */
+.waiting { padding-top: 40px; text-align: center; }
+.waiting .role-line { font-size: 16px; line-height: 1.5; margin: 6px 0 14px; }
+.waiting .role-line b { color: var(--accent-cyan); }
+.wait-dots { display: flex; gap: 8px; justify-content: center; margin-top: 22px; }
+.wait-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-cyan);
+  opacity: 0.3;
+  animation: wait-pulse 1.2s infinite ease-in-out;
+}
+.wait-dots span:nth-child(2) { animation-delay: 0.2s; }
+.wait-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes wait-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+
+/* Ergebnisbildschirm (Sieg/Niederlage) */
+.end { padding-top: 56px; text-align: center; }
+.end-title {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  color: var(--accent-cyan);
+}
+.end.lost .end-title { color: var(--accent-red); }
+.end .small { font-size: 13px; margin-top: 16px; }
+
+/* Missionsblock auf dem Wartebildschirm (kurze Einsatzbesprechung) */
+.mission {
+  text-align: left;
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-yellow);
+  padding: 14px;
+  margin: 0 auto 16px;
+  max-width: 360px;
+  line-height: 1.5;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+}
+.mission-head { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+.mission p { margin: 0; font-size: 14px; }
+
+/* Kurzanleitung je Station (Karte vor dem Spielen) */
+.howto { padding-top: 28px; }
+.howto-kicker { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); }
+.howto-name { margin-top: 4px; }
+.howto-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-cyan);
+  padding: 16px;
+  margin-bottom: 18px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+}
+.howto-goal { font-size: 16px; line-height: 1.5; }
+.howto-example {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--edge);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--accent-yellow);
+}
+
+/* Sektorwechsel-Zwischenbild (ruhiger Beat vor dem naechsten Spiel) */
+.interstitial { padding-top: 48px; text-align: center; }
+.inter-kicker { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+.inter-sector { font-size: 34px; font-weight: 700; letter-spacing: 0.06em; margin: 6px 0 2px; color: var(--accent-cyan); }
+.inter-rotate { font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-yellow); margin-bottom: 18px; }
+.inter-station { font-size: 17px; line-height: 1.5; }
+.inter-station b { color: var(--accent-cyan); }
+
+/* Rollenleiste oben */
+.topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--edge);
+}
+.topbar .brand { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-muted); }
+.topbar .chip {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg-void);
+  background: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 2px;
+  padding: 4px 10px;
+}
+.topbar .chip.supporter { color: var(--accent-yellow); background: transparent; border-color: var(--accent-yellow); }
+
+/* Sektorgrenze: Fortschritt 100 %, Spieler meldet sich bereit */
+.boundary { padding-top: 56px; text-align: center; }
+.boundary-kicker { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-muted); }
+.boundary-progress { font-size: 64px; font-weight: 700; font-family: var(--font-mono); color: var(--accent-cyan); margin: 4px 0 14px; }
+.boundary .muted { margin-bottom: 20px; line-height: 1.5; }
+.boundary-wait { margin-top: 16px; }
+.boundary-wait .wait-dots { justify-content: center; }
+.boundary-wait .muted { margin-bottom: 0; font-size: 13px; }
+
+/* Stationsmenue (A/B/C) */
+.menu { padding-top: 20px; }
+.menu-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.menu-station {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.menu-contrib {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent-cyan);
+}
+.menu-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--edge);
+  margin-bottom: 14px;
+}
+.menu-choices { display: grid; gap: 10px; margin-bottom: 16px; }
+.menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  text-align: left;
+  color: var(--text-primary);
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  padding: 14px 16px;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -3px 6px rgba(0,0,0,0.45);
+  background-image:
+    radial-gradient(circle at 9px 9px, rgba(0,0,0,0.5) 1.6px, transparent 2.2px),
+    radial-gradient(circle at calc(100% - 9px) 9px, rgba(0,0,0,0.5) 1.6px, transparent 2.2px),
+    radial-gradient(circle at 9px calc(100% - 9px), rgba(0,0,0,0.5) 1.6px, transparent 2.2px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), rgba(0,0,0,0.5) 1.6px, transparent 2.2px);
+}
+.menu-btn:active { background-color: var(--bg-panel-2); }
+.menu-a { border-left: 4px solid var(--accent-cyan); }
+.menu-b { border-left: 4px solid var(--accent-orange); }
+.menu-c { border-left: 4px solid var(--accent-yellow); }
+.menu-key {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  min-width: 22px;
+}
+.menu-a .menu-key { color: var(--accent-cyan); }
+.menu-b .menu-key { color: var(--accent-orange); }
+.menu-c .menu-key { color: var(--accent-yellow); }
+.menu-btn.vote-sent { opacity: 0.65; pointer-events: none; }
+
+/* Abstimmungs-Overlay: erscheint ueber dem aktuellen Bildschirm waehrend eines Joker-Votes */
+.vote-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(13,14,16,0.9);
+}
+.vote-box {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-top: 4px solid var(--accent-yellow);
+  padding: 24px 20px 20px;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.vote-kicker {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-yellow);
+  margin-bottom: 8px;
+}
+.vote-initiator {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+.vote-timer {
+  font-size: 58px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent-yellow);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.vote-tally {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+}
+.vote-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.vote-yes, .vote-no {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: none;
+  padding: 18px 0;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -3px 6px rgba(0,0,0,0.35);
+}
+.vote-yes { color: var(--bg-void); background: var(--status-stable); }
+.vote-no  { color: var(--bg-void); background: var(--accent-red); }
+.vote-cast-msg {
+  font-size: 15px;
+  color: var(--accent-cyan);
+  letter-spacing: 0.04em;
+  padding: 14px 0 2px;
+}
+.menu-btn:disabled { opacity: 0.42; cursor: not-allowed; pointer-events: none; }
+
+/* Verbindungsverlust */
+.disconnect {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: rgba(13, 14, 16, 0.92);
+}
+.dc-title { font-size: 22px; font-weight: 600; color: var(--accent-orange); margin-bottom: 6px; }
+
+/* Hinweis-Einblendung (z. B. Rollenwechsel) */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 84px;
+  transform: translateX(-50%) translateY(10px);
+  z-index: 15;
+  background: var(--bg-panel-2);
+  border: 1px solid var(--accent-yellow);
+  color: var(--text-primary);
+  font-size: 14px;
+  padding: 10px 16px;
+  border-radius: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* Instrumenten-Optik: Bevel, Schrauben, Kippschalter, mechanische Regler.
+   Hell-Dunkel ueber neutrale Schatten, Funktionsfarben weiter aus den Tokens. */
+.bc-scenario, .station-btn, .lobby-name {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 6px rgba(0, 0, 0, 0.45);
+  background-image:
+    radial-gradient(circle at 9px 9px, rgba(0, 0, 0, 0.5) 1.6px, transparent 2.2px),
+    radial-gradient(circle at calc(100% - 9px) 9px, rgba(0, 0, 0, 0.5) 1.6px, transparent 2.2px),
+    radial-gradient(circle at 9px calc(100% - 9px), rgba(0, 0, 0, 0.5) 1.6px, transparent 2.2px),
+    radial-gradient(circle at calc(100% - 9px) calc(100% - 9px), rgba(0, 0, 0, 0.5) 1.6px, transparent 2.2px);
+}
+.bc-gate {
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), inset 0 -3px 5px rgba(0, 0, 0, 0.5);
+}
+/* Kippschalter-Anzeige: erlischt/leuchtet je nach Auswahl */
+.bc-gate::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--bg-void);
+  border: 1px solid var(--edge);
+}
+.bc-gate.sel::before {
+  background: var(--accent-cyan);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 6px var(--accent-cyan);
+}
+.bc-confirm { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -3px 6px rgba(0, 0, 0, 0.35); }
+
+.tp-row input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  background: var(--bg-void);
+  border: 1px solid var(--edge);
+}
+.tp-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 26px;
+  background: var(--steel);
+  border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), inset 0 -3px 4px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+}
+.tp-row input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 26px;
+  background: var(--steel);
+  border: 1px solid var(--edge);
+  cursor: pointer;
+}
+
+/* In-Game Hilfe-Leiste: Overlay direkt unter der Topbar, nur waehrend screen="game" */
+.help-bar {
+  position: fixed;
+  left: 0; right: 0;
+  top: 52px;
+  z-index: 4;
+  padding: 6px 16px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--edge);
+}
+.btn-help {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+  background: transparent;
+  border: 1px solid var(--accent-cyan);
+  padding: 7px 0;
+  cursor: pointer;
+}
+.btn-help:disabled {
+  color: var(--text-muted);
+  border-color: var(--edge);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+.btn-help:not(:disabled):active { background: rgba(54,208,224,0.08); }
+
+/* Hinweis-Overlay: erscheint wenn dieser Spieler als Helfer ausgewaehlt wurde */
+.help-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(13,14,16,0.92);
+}
+.help-box {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-panel);
+  border: 1px solid var(--edge);
+  border-top: 4px solid var(--accent-cyan);
+  padding: 24px 20px 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+.help-kicker {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent-cyan);
+  margin-bottom: 6px;
+}
+.help-for {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+.help-cta {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent-yellow);
+  margin-bottom: 8px;
+}
+.help-hint-text {
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-panel-2);
+  border: 1px solid var(--edge);
+  border-left: 4px solid var(--accent-cyan);
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), inset 0 -3px 6px rgba(0,0,0,0.45);
+}
+.help-dismiss {
+  width: 100%;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bg-void);
+  background: var(--accent-cyan);
+  border: none;
+  padding: 14px 0;
+  cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -3px 6px rgba(0,0,0,0.35);
+}
+
+/* display:flex in den Overlay-Regeln wuerde das HTML-hidden-Attribut uebertrumpfen;
+   diese Regeln stellen sicher, dass hidden tatsaechlich versteckt. */
+.help-overlay[hidden],
+.vote-overlay[hidden] { display: none; }

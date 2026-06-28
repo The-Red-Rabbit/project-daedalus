@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daedalus · Teststand</title>
+<link rel="stylesheet" href="/styles/tokens.css">
+<style>
+  html, body { margin: 0; min-height: 100%; background: var(--bg-void); color: var(--text-primary); font-family: var(--font-ui); }
+  body { min-height: 100vh; padding: 28px 24px; box-sizing: border-box; }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .kicker { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-orange); }
+  h1 { font-size: 32px; font-weight: 600; letter-spacing: 0.05em; margin: 6px 0 6px; }
+  .lead { color: var(--text-muted); line-height: 1.5; margin-bottom: 8px; }
+  /* Klar als Entwicklerwerkzeug abgesetzt: gestrichelte Warnkante wie der Bot-Bereich. */
+  .tag { display: inline-block; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-orange); border: 1px dashed var(--accent-orange); border-radius: 3px; padding: 4px 8px; margin-bottom: 22px; }
+
+  .stations { display: flex; flex-direction: column; gap: 12px; }
+  .station { background: var(--bg-panel); border: 1px solid var(--edge); border-radius: 5px; padding: 16px 18px; display: flex; align-items: center; gap: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), inset 0 -3px 8px rgba(0,0,0,0.35); }
+  .station .meta { flex: 1; min-width: 0; }
+  .station .name { font-size: 19px; font-weight: 600; }
+  .station .sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-family: var(--font-mono); }
+  .station .coop { color: var(--accent-cyan); font-family: var(--font-ui); letter-spacing: 0.04em; }
+  .levels { display: flex; gap: 8px; }
+  .levels .lvl-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); align-self: center; margin-right: 2px; }
+  a.lvl { text-decoration: none; font-family: var(--font-mono); font-size: 16px; color: var(--text-primary); background: var(--bg-void); border: 1px solid var(--edge); border-radius: 3px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; transition: border-color 0.15s, color 0.15s; }
+  a.lvl:hover { border-color: var(--accent-orange); color: var(--accent-orange); }
+
+  .note { margin-top: 24px; font-size: 13px; color: var(--text-muted); line-height: 1.6; }
+  .note code { font-family: var(--font-mono); color: var(--accent-cyan); }
+  .back { display: inline-block; margin-top: 18px; font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="kicker">Daedalus · Entwicklung</div>
+    <h1>Mini-Spiel-Teststand</h1>
+    <p class="lead">Setzt dich sofort auf eine Station, ohne Lobby und ohne auf eine Rotation zu warten. Wähle eine Station und eine Stufe – der Controller öffnet sich in einem neuen Tab und das Mini-Spiel startet direkt.</p>
+    <span class="tag">⚠ Nur mit DAEDALUS_DEBUG · nicht im Unterricht</span>
+
+    <div class="stations" id="stations"></div>
+
+    <p class="note">Die Schiffshülle bleibt im Teststand voll und der Sektorfluss ruht, damit du beliebig lange testen kannst. Bei der Koop-Station <b>Reaktor</b> kommt automatisch ein Bot als Partner dazu, sodass der Match-Wert lebt. Ein echtes Spiel beginnt erst wieder über „Spiel starten“ oder „Zurück zur Lobby“ am Leitstand.</p>
+    <a class="back" href="/host">← Zurück zur Auswahl</a>
+  </div>
+  <script type="module" src="/dev/dev.js"></script>
+</body>
+</html>

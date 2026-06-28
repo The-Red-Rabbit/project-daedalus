@@ -1,0 +1,209 @@
+# MVP-Backlog
+
+Abgegrenzte Aufgaben für Claude Code. Das Grundgerüst steht und läuft (Server, Host, Controller, Mini-Spiel-Schnittstelle, Bordcomputer, Audio-Engine, Designtokens). Diese Tickets führen zu einem runden MVP.
+
+Reihenfolge: T1 bis T4 und T6 bilden das MVP. T5 ist ein späterer Schritt. Jedes Ticket nennt Ziel, betroffene Dateien, Vorgehen und ein Abnahmekriterium. Bezeichner im Code auf Englisch, sichtbare Texte auf Deutsch, generate und validate bleiben ohne DOM.
+
+Stand 17.06.2026: Alle Tickets sind umgesetzt. T1, T2, T3, T4, T5 und T6 sind erledigt und durch automatische Tests sowie Durchlaeufe mit mehreren Controllern (Sieg- und Niederlage-Pfad) belegt. Zusaetzlich gibt es ein drittes Mini-Spiel (Zahlensysteme, Station Navigation) und einen Qualitaetsschliff bei Bild und Ton.
+
+Stand 18.06.2026 (Runde 2): Phase 1 bis 4 sind erledigt (siehe unten „Runde 2“). Debug-Bots fuers Solo-Testen, eine ruhigere Taktung, die kooperative Reaktor-Station, der Umbau des Bordcomputers zum Schaltungsbau und die Vertiefung von Tiefpass und Zahlensysteme sind umgesetzt und durch Tests (64 gruen) sowie Komplettdurchlaeufe mit Bots belegt.
+
+Stand 19.06.2026 (Runde 3, getrieben vom Klassentest-Feedback): Phase 4 (Mini-Spiel-Teststand) ist erledigt (siehe unten „Runde 3“). Die Phasen 5 bis 8 (Reaktor-Win-Flow, Onboarding und Sektorwechsel, Haertung von Bordcomputer und Zahlensysteme) stehen noch aus.
+
+## T1: Sichtbarer QR-Code auf der Host-Seite (erledigt)
+
+Ziel: Der Host zeigt den Beitritts-Code groß auf der Beamer-Seite, nicht nur im Terminal.
+
+Dateien: `server/index.js`, `client/host/index.html`, `client/host/host.js`.
+
+Vorgehen: Einen Endpunkt `/qr` ergänzen, der die Controller-URL über `qrcode` als SVG liefert. Die URL aus der LAN-Adresse bilden. Im Join-Panel des Hosts ein Bild oder Inline-SVG anzeigen.
+
+Fertig, wenn: Ein Smartphone den Code scannt und der Controller im selben WLAN lädt.
+
+Erledigt: Der Endpunkt `/qr` liefert den QR-Code als SVG aus der LAN-URL (zusätzlich im Header `X-Join-URL`). Der Host zeigt ihn im Join-Panel samt URL.
+
+## T2: Leitstand an den Server verdrahten (erledigt)
+
+Ziel: Ereignis und Grundschwierigkeit wirken serverseitig statt nur lokal.
+
+Dateien: `shared/protocol.js`, `client/host/host.js`, `server/index.js`, `server/game.js`.
+
+Vorgehen: Neue Nachrichten für Ereignis und Schwierigkeit aufnehmen. Der Knopf löst eine Asteroidenwelle als Server-Ereignis aus, das an alle geht und die Hülle senkt. Der Regler setzt die Grundstufe, aus der neue Aufgaben erzeugt werden.
+
+Fertig, wenn: Ein Knopfdruck eine Welle auslöst, die Hülle sinkt und der Host die Erschütterung zeigt. Der Regler ändert die Stufe der nächsten Aufgaben.
+
+Erledigt: Neue, nur vom Host akzeptierte Nachrichten `triggerEvent` und `setDifficulty`. Die Welle senkt serverseitig die Hülle und wird als `event` an alle gemeldet; der Host spielt Alarm und Einschlag und schüttelt die Szene. Der Regler setzt die Grundstufe für neue Aufgaben.
+
+## T3: Statusverfall und Nachjustieren (erledigt)
+
+Ziel: Eine Station bleibt nur stabil, wenn sie gehalten wird. Leerlauf wird spürbar.
+
+Dateien: `server/game.js`.
+
+Vorgehen: Im Tick den Stationsstatus über Zeit von stabil auf achtung absinken lassen, bis eine neue Aufgabe gelöst wird. Unbesetzte Stationen bleiben kritisch. Die geteilten Werte an diesen Verlauf koppeln.
+
+Fertig, wenn: Ohne Eingriff fällt eine Station zurück und der Fortschritt stockt. Nach erneutem Lösen steigt sie wieder.
+
+Erledigt: Jede Station trägt einen Stabilitätswert (1 nach dem Lösen), der im Tick fällt; nach rund acht Sekunden ohne neue Lösung wird sie wieder „achtung“. Der Huellenverlust ist an die Vernachlässigung gekoppelt (unbesetzt am stärksten, besetzt aber instabil weniger, stabil gar nicht). Fortschritt braucht die Mehrheit der Stationen stabil. Host und Controller zeigen die Stabilität.
+
+## T4: Sektorfluss und Spielende (erledigt)
+
+Ziel: Fortschritt führt durch die Sektoren bis zum Ziel. Eine leere Hülle bedeutet Scheitern.
+
+Dateien: `server/game.js`, `client/host/host.js`, `shared/protocol.js`.
+
+Vorgehen: Bei Fortschritt 100 den Sektor erhöhen und den Fortschritt zurücksetzen. Nach dem letzten Sektor folgt der Sieg, bei Hülle 0 die Niederlage. Der Host zeigt das Ergebnis.
+
+Fertig, wenn: Ein Durchlauf sichtbar endet, als Sieg oder als Niederlage.
+
+Erledigt: Voller Fortschritt führt in den nächsten Sektor (drei insgesamt), nach dem letzten folgt der Sieg, leere Hülle die Niederlage. Die Phase liegt im Zustand; nach dem Ende ruht die Simulation. Der Host zeigt ein Ergebnisfenster mit dem Knopf „Neuer Anlauf“ (`resetGame`), der Server setzt zurück und vergibt frische Aufgaben.
+
+## T5: Rollenrotation und Unterstützerrolle (erledigt)
+
+Ziel: Rollen wechseln zwischen Sektoren. Schnelle Lernende erhalten eine Unterstützerrolle statt Wartezeit.
+
+Dateien: `server/game.js`, `server/index.js`, `client/controller/controller.js`, `shared/protocol.js`.
+
+Vorgehen: Beim Sektorwechsel die Stationen neu zuteilen. Wer schnell löst, bekommt eine Co-Pilot-Aufgabe aus einem Pool, etwa einer ausgelasteten Station zuarbeiten.
+
+Fertig, wenn: Nach einem Sektor sitzt jede Person an einer anderen Station und schnelle Lösungen erzeugen keine Wartezeit.
+
+Erledigt: Der Server verteilt die Rollen selbst. Wer beitritt, wird Operator einer freien Station oder, wenn alle besetzt sind, Co-Pilot der am wenigsten unterstützten Station, also kein Warten. Eine Co-Pilot-Lösung hebt die Stabilität der Station. Beim Sektorwechsel rotiert die Sitzordnung, jede Person wechselt die Station. Fällt ein Operator aus, rückt ein Co-Pilot nach. Die Schwierigkeit justiert pro Person nach dem Tempo.
+
+## T6: Zweites Mini-Spiel Tiefpassfilter (Station Sensorik) (erledigt)
+
+Ziel: Ein zweites, voll spielbares und zufälliges Mini-Spiel, das die Schnittstelle erfüllt. Es bringt fachliche Breite, da der Bordcomputer Themenfeld 3 abdeckt und der Filter Themenfeld 2.
+
+Dateien: neu `client/minigames/tiefpassfilter.js`, Eintrag in `client/minigames/registry.js`, Station in `shared/protocol.js` ergänzen.
+
+Spielidee: R und C so einstellen, dass die Grenzfrequenz die Zielfrequenz trifft. Es gilt f_c = 1 / (2 * pi * R * C). Live-Rückmeldung über eine Amplituden-Frequenz-Kurve mit einer Zielmarke. Das Ziel ist die Kante der Kurve auf die Marke zu schieben, was auch ohne Fachwissen sichtbar bleibt.
+
+Einkleidung: „Stelle den Sensorfilter so ein, dass nur das tiefe Signal durchkommt.“
+
+Schnittstelle:
+
+- `generate(level, rng)`: zufällige Zielfrequenz aus einem sinnvollen Bereich. Die Stufe steuert die Toleranz und ob nur C oder R und C verstellbar sind. Bauteilwerte aus diskreten Reihen, damit die Zielfrequenz erreichbar ist.
+- `mount(root, task, ctx)`: Kurve auf Canvas oder SVG zeichnen, Auswahl oder Schieberegler für R und C, die berechnete f_c und die Zielmarke anzeigen, Bestätigen über `ctx.submit`.
+- `validate(task, input)`: f_c aus den gewählten Werten berechnen. Gelöst, wenn der Abstand zur Zielfrequenz innerhalb der Toleranz liegt. `teiltreffer` aus der Nähe ableiten.
+
+Wichtig: generate und validate ohne DOM, nur mount nutzt das Document. Als Vorlage dient `client/minigames/_template.js`, als Vorbild `client/minigames/bordcomputer.js`.
+
+Fertig, wenn: Die Station Sensorik wählbar ist, jede Runde eine andere Zielfrequenz zeigt und die Validierung serverseitig stimmt.
+
+Erledigt: `client/minigames/tiefpassfilter.js` erfüllt die Schnittstelle DOM-frei in generate und validate. Diskrete R- und C-Reihen machen die Zielfrequenz exakt erreichbar; die Stufe steuert Toleranz und ob nur C oder R und C verstellbar sind. mount zeichnet den Amplitudengang auf Canvas mit Zielmarke und Toleranzband, der Start liegt bewusst daneben. Modul ist in der Registry, Station Sensorik im Protokoll.
+
+## Runde 2
+
+Weiterentwicklung nach dem ersten klassenfertigen Stand, getrieben von `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`. Phasenweise, mit bewusstem Stopp nach jeder Phase.
+
+### Runde 2 · Phase 1: Debug-Bots und Entschärfung des Tempos (erledigt)
+
+Ziel: Ein Werkzeug zum Solo-Testen und eine ruhigere Taktung. Kein neuer Spielinhalt.
+
+Teil A, simulierte Spieler (Bots). Neu `server/bots.js`: Bots treten über dieselbe `addParticipant`-Logik bei wie echte Lernende, bekommen Rollen, rotieren mit und lösen ihre Aufgaben über den echten `solve`-Pfad (meist richtig, gelegentlich daneben). Steuerung nur vom Host über die neue, nur mit `DAEDALUS_DEBUG` aktive Nachricht `debugBots` (`spawn`/`clear`). Im Leitstand ein abgesetzter Debug-Bereich „Simulierte Spieler“, im Roster mit „🤖“ markiert. Damit das Lösungswissen nicht doppelt liegt, hat jedes Mini-Spiel eine optionale, DOM-freie Methode `solve(task)`; die Tests nutzen sie ebenfalls.
+
+Teil B, ruhigere Taktung (Profil „mittel“). Werte oben in `server/game.js`: `STABLE_DECAY_PER_SEC` von 0,12 auf 0,0625 (Station hält ~16 s statt ~8 s), `HULL_DRAIN_CRITICAL` von 1,5 auf 1,0, `HULL_DRAIN_WARN` von 0,6 auf 0,35. Neu `GRACE_SEC = 6`: eine Schonzeit nach Start und nach jedem Sektorwechsel, in der nichts verfällt und die Hülle hält (der Fortschritt darf laufen). Die Brücke zeigt sie als Anflug-Hinweis, der Host-`state` trägt das Restfeld `grace`.
+
+Fertig, wenn: Mit sechs Bots läuft ein voller Durchlauf allein an Brücke und Leitstand bis zum Sieg oder zur Niederlage, ein Sektor fühlt sich ruhiger an und kurze Vernachlässigung reißt die Hülle nicht sofort ein. Belegt durch `npm test` (48 Tests grün, inklusive `solve`- und Bot-Tests) und einen Komplettdurchlauf (sechs Bots, Sieg über drei Sektoren).
+
+### Runde 2 · Phase 2: Kooperative Reaktor-Station (erledigt)
+
+Ziel: Eine neue, kooperative Station, die zum Reden und zum Blick nach vorn auf die Brücke zwingt.
+
+Mechanik: Zwei Personen kalibrieren gemeinsam eine kapazitive Reaktanz `Xc = 1 / (2*pi*f*C)` auf einen Zielwert aus dem Seed. Der Operator stellt die Kapazität C (Parameter `a`), der Co-Pilot die Frequenz f (Parameter `b`). Niemand sieht den Wert der anderen Seite, beide sehen Ziel und Annäherung (Match). Gewertet wird über das Modell „beide bestätigen“ (Felix' Wahl): nur wenn beide bei einem Wert im Toleranzband bestätigen, rastet es ein, die Station wird stabil und ein neues Ziel erscheint. Solo-Fallback: eine Person bedient beide Regler und bestätigt allein. Bedienelement: großer Schieberegler (Felix' Wahl).
+
+Architektur: Anders als die Einzelspiele hält den geteilten Zustand (beide Reglerwerte, Ziel, Bestätigungen) der Server in `server/game.js` je Koop-Station und rechnet die Reaktanz über `validate` autoritativ nach. Neues Modul `client/minigames/reaktor.js` (generate/validate/solve/solveFor DOM-frei), Eintrag in der Registry und in `STATIONS` mit `coop: true`. Neue Protokoll-Nachrichten `coopInput` und `coopConfirm`; `state` trägt für die Koop-Station `coopView` (Host) bzw. `coop` (Controller). Energie ist an den Reaktor gekoppelt (`ENERGIE_GAIN_PER_SEC`/`ENERGIE_DRAIN_PER_SEC` oben in `server/game.js`). Die Bots aus Phase 1 bedienen auch den Reaktor (schrittweise auf die Ziellinie, dann bestätigen). Brücke zeigt Ziel und Match groß; Controller hat den Schieber, eine Match-Leiste und einen Peilton `reaktor.tune`, der näher am Ziel dichter wird.
+
+Fertig, wenn: Zwei Personen (oder zwei Bots) kalibrieren den Reaktor, das Ziel steht auf der Brücke, der Match steigt sichtbar, bei Treffer wird die Station stabil und die Energie reagiert; die drei bestehenden Stationen laufen unverändert. Belegt durch `npm test` (60 Tests grün, inkl. Reaktor-Modul, Koop-Spielkern, Bot-Kalibrierung) und einen Live-Durchlauf mit acht Bots (Reaktor-Paar kalibriert wiederholt über mehrere Sektoren, Energie gekoppelt).
+
+### Runde 2 · Phase 3: Bordcomputer als Schaltungsbau (erledigt)
+
+Ziel: Das bloße Durchklicken verschwindet. Statt ein Gatter aus vier zu wählen, baut man die Lösung aus mehreren Gattern.
+
+Mechanik (Felix' Wahl: kleine Schaltung aus bis zu drei Gattern): Aus einer Ziel-Wahrheitstabelle baut man die Schaltung selbst, indem man je Slot ein Gatter wählt. Stufe 1 ist eine Reihe aus zwei Gattern (`out = Gout(G1(A,B), B)`), Stufe 2/3 die kleine Schaltung aus drei Gattern (`out = Gout(G1(A,B), G2(A,B))`); die Gatter-Auswahl wächst mit der Stufe (Stufe 1: UND/ODER/NAND, Stufe 2: + XOR, Stufe 3: + NOR/XNOR). Rückmeldung gibt es erst nach dem Bestätigen (keine Ist-Spalte mehr beim Bauen). Ein Fehlversuch kostet Stabilität (Felix' Wahl statt einer Sperre): `WRONG_SOLVE_PENALTY` oben in `server/game.js` senkt sie über den allgemeinen solve-Pfad (wirkt damit auch auf die anderen Einzelspiele und die Bots; Koop läuft über coopConfirm und bleibt unberührt).
+
+Architektur: `generate`/`validate`/`solve` bleiben DOM-frei; die Aufgabe beschreibt die Verdrahtung generisch (`slots` mit Eingangs-Referenzen, `palette`, `target`, `solution`), sodass derselbe Code auf Server und Client die Schaltung auswertet. Der Server validiert autoritativ. `test/bordcomputer.test.js` ist auf die neue Mechanik umgestellt und prüft `validate` gegen eine unabhängige Schaltungsauswertung über alle möglichen Belegungen.
+
+Fertig, wenn: Eine korrekte Lösung verlangt das Nachdenken über die Tabelle, blindes Probieren ist langsam und teuer, die Tests sind grün und der Spielablauf läuft ohne Regression. Belegt durch `npm test` (63 Tests grün) und einen Live-Durchlauf mit sechs Bots (Bordcomputer wird gebaut und stabil, Sieg über drei Sektoren, Fehlversuche senken sichtbar die Stabilität).
+
+### Runde 2 · Phase 4: Tiefpass und Zahlensysteme vertiefen (erledigt)
+
+Ziel: Auch die beiden übrigen Einzelspiele belohnen Verständnis statt Probieren, mit verzögerter Rückmeldung und mehr Konstruktion.
+
+Tiefpassfilter (Felix' Wahl: Kapazität aus zwei Bauteilen): Statt ein C zu wählen, baut man die Kapazität aus zwei Kondensatoren in Reihe oder parallel (`C_reihe = C1·C2/(C1+C2)`, `C_parallel = C1+C2`) und trifft damit die Grenzfrequenz `f_c = 1/(2·π·R·C)`. R bleibt fest in Stufe 1, ab Stufe 2 wählbar. Die Live-Kurve bleibt als Bediengefühl, das Toleranzband und das Urteil erscheinen erst nach dem Bestätigen. Diskrete Bauteilreihen halten die Ziele exakt erreichbar.
+
+Zahlensysteme (Felix' Wahl: ohne Live-Dezimalanzeige, Hex ab Stufe 2): Die mitlaufende Dezimalanzeige verschwindet – man rechnet den Zielcode selbst in Bits um, die Prüfung kommt erst nach dem Bestätigen. Das Ziel steht ab Stufe 2 hexadezimal. Die Bit-Schalter und die angeschriebenen Gewichte bleiben.
+
+Architektur: `generate`/`validate`/`solve` bleiben DOM-frei; der Server validiert autoritativ aus dem Seed. Die Aufgabe des Tiefpassfilters trägt jetzt `c1`/`c2`/`mode`; `solve` durchsucht die erreichbaren Kombinationen. Ein Fehlversuch kostet weiterhin Stabilität (`WRONG_SOLVE_PENALTY` aus Phase 3, allgemeiner solve-Pfad). `test/tiefpassfilter.test.js` ist auf die neue Mechanik umgestellt (mit unabhängiger Reihen-/Parallel-Kontrolle), `test/zahlensysteme.test.js` um das Hex-ab-Stufe-2-Verhalten ergänzt.
+
+Fertig, wenn: Beide Mini-Spiele belohnen Verständnis, die Tests sind grün und der Spielablauf läuft ohne Regression. Belegt durch `npm test` (64 Tests grün) und einen Live-Durchlauf mit acht Bots (Sensorik und Navigation werden gelöst und stabil, Sieg über drei Sektoren).
+
+### Runde 2 · Phase 5: Backlog für nach dem Test
+
+Bewusst aufgeschoben, nicht vor dem Klassentest: dekoratives Bediengefühl als Politur (Panel aufschrauben, Schalter umlegen, Ventile als Ritual), weitere Stationen aus `docs/GAME_DESIGN.md` (Antrieb, Schilde), mehrere Räume statt eines einzigen Spiels, einfache Datenerfassung für die Reflexion, echte Assets in den Slots (Sprites und Sounddateien je Cue, im Manifest eingetragen). Details in `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`.
+
+## Runde 3
+
+Weiterentwicklung nach dem ersten Klassentest, getrieben vom Feedback (siehe `docs/CLAUDE_CODE_PROMPTS_RUNDE2.md`, Abschnitt „Round 3“). Phasenweise, mit bewusstem Stopp nach jeder Phase. Reihenfolge: Phase 4 (Teststand) zuerst, dann 5 (Reaktor-Win-Flow) und 6 (Onboarding und Sektorwechsel) bis zur erneut testbaren Linie; 7 und 8 (Haertung der Einzelspiele) koennen nach dem naechsten Test folgen.
+
+### Runde 3 · Phase 4: Mini-Spiel-Teststand (erledigt)
+
+Ziel: Ein einzelnes Mini-Spiel in Sekunden testen, ohne durch Lobby und Rotation zu spielen. Reines Entwicklerwerkzeug, hinter `DAEDALUS_DEBUG` wie die Bots.
+
+Felix' Wahl (AskUserQuestion): eine eigene `/dev`-Seite, die jede Station mit Stufen-Knoepfen listet; ein Klick oeffnet einen schon gesetzten Controller.
+
+Dateien: `shared/protocol.js` (neue Nachricht `debugSeat`), `server/game.js` (`seatParticipant`, `debugSeat`, Sandbox-Zustand mit Tick-Ruhe), `server/bots.js` (`spawnPartner`), `server/index.js` (`/dev`-Route nur mit Debug, `debugSeat`-Handler), neu `client/dev/index.html` und `client/dev/dev.js`, `client/controller/controller.js` (Debug-Pfad ueber `?station=&level=`), `client/dashboard/index.html` (Link aus dem Debug-Bereich).
+
+Vorgehen: Ein debug-only Pfad setzt einen Controller direkt als Operator auf eine gewaehlte Station und schaltet das Spiel in den Sandbox-Zustand (Phase `running`, aber Huellenverlust, Spielende und Sektorfluss ruhen, damit eine einzelne Teststation nicht wegrotiert oder das Schiff aufreibt; Stabilitaetsverfall und Energie-Kopplung laufen weiter). Eine Koop-Station bekommt automatisch einen Bot als Co-Pilot (`bots.spawnPartner`), damit der Match-Wert lebt. Das normale Spiel bleibt unberuehrt: der Teststand ist ein zusaetzlicher Pfad, kein Eingriff in Lobby oder Rotation. Ohne `DAEDALUS_DEBUG` liefert `/dev`/`/dev/*` einen 404 und der Server ignoriert `debugSeat`.
+
+Fertig, wenn: Mit Debug oeffnet man `/dev`, waehlt Station und Stufe und das Mini-Spiel mountet sofort; der Reaktor kommt mit Bot-Partner, sodass der Match-Wert wandert; ohne das Debug-Flag existiert der Eintrag nicht. Belegt durch `npm test` (64 gruen, keine Regression), einen Logik-Smoke (debugSeat/Sandbox/Koop-Partner) sowie HTTP- und WebSocket-Checks gegen einen laufenden Server mit und ohne `DAEDALUS_DEBUG`.
+
+### Runde 3 · Phase 5: Reaktor entwirren (erledigt)
+
+Ziel: Der Reaktor soll sich wie der SOS-Schieber anfuehlen, der im Unterricht funktioniert hat. Zwei Personen reden, justieren ihre verborgenen Parameter, und die Kalibrierung rastet von selbst ein, wenn sie den kombinierten Wert im Zielband halten. Kein Bestaetigungs-Tanz. Es ging um den Win-Flow und die Klarheit, nicht um einen Logik-Umbau (das Modul bestand alle Tests).
+
+Felix' Wahl (AskUserQuestion): nach dem Einrasten rollt nach einer kurzen sichtbaren Pause ein frisches Ziel; Toleranz „Balanced“ (Stufe 1 ±16 %, Stufe 2 ±11 %, Stufe 3 ±7 %).
+
+Mechanik (Hold-to-Lock): Der duale Confirm-Win entfaellt. Halten beide den kombinierten Wert `HOLD_SEC` (1,5 s) am Stueck im Toleranzband, rastet die Station von selbst ein (stabil), zeigt eine sichtbare Pause `RELOCK_PAUSE_SEC` (1,2 s) und rollt dann ein neues Ziel. Den Fortschritt treibt der Server im Tick (`advanceCoop`) voran und liefert ihn als `hold` (0..1) und `locked` in die Sichten; beim Einrasten schickt er den beteiligten Controllern ein `result` (Ton und Rueckmeldung). Der Bestaetigen-Knopf ist weg; `coopConfirm`/`COOP_CONFIRM` sind veraltet, der Konstantenname bleibt nur fuer die Kompatibilitaet im Protokoll. Die Bots halten im Band, statt zu bestaetigen.
+
+Klarheit: grosse Zustandszeile (zu hoch / zu niedrig / im Band – halten / kalibriert), die Match-Leiste mit klarem Bandmarker (gestrichelte Kante) und ein sich fuellender Einrast-Ring (Conic-Gradient). Der Peilton `reaktor.tune` bleibt und wird naeher am Ziel dichter; im Moment des Einrastens spielt `ui.confirm`.
+
+Architektur: `generate`/`validate`/`solve`/`solveFor` bleiben DOM-frei (nur die Toleranzwerte aendern sich); der Server haelt den geteilten Zustand inkl. Haltezeit und validiert autoritativ. `test/game.test.js` ist auf Hold-to-Lock umgestellt (Einrasten durch Halten, kein Lock ausserhalb des Bandes, Haltezeit-Reset, neues Ziel nach der Pause, Solo, Energie-Kopplung).
+
+Fertig, wenn: Mit einer Person plus Bot-Partner (oder zwei Tabs) erreicht man das Ziel durch Reden und Halten, es rastet ohne Confirm-Kampf glatt ein, die Energie reagiert weiter und die drei Einzelspiele bleiben unberuehrt. Belegt durch `npm test` (66 gruen) und einen WebSocket-Durchlauf ueber den `/dev`-Teststand (Operator haelt, Bot-Partner zieht nach: Einrasten, `result`-Rueckmeldung, neues Ziel nach der Pause, Huelle bleibt im Sandbox voll).
+
+### Runde 3 · Phase 6: Onboarding und klarer Sektorwechsel (erledigt)
+
+Ziel: Wer eine Station noch nie gesehen hat, versteht sie ohne gesprochene Hilfe, und der Sektorwechsel ist kein abrupter Sprung mehr. Erreicht die erneut testbare Linie (Phasen 4 bis 6).
+
+Felix' Wahl (AskUserQuestion): je Station eine Zielzeile plus ein kleines, konkretes Beispiel.
+
+Kurzanleitung je Station: Jedes Mini-Spiel bringt ein DOM-freies Feld `howto` mit (`goal` und `example`). Vor dem Mounten zeigt der Controller eine kompakte Anleitungskarte (Station, Ziel, Beispiel, Knopf „Los") – beim Erststart und nach jeder Rotation, nicht nach dem blossen Loesen (das mountet die naechste Aufgabe sofort). Der `/dev`-Teststand ueberspringt die Karte.
+
+Einsatzbesprechung: Die Wartelobby auf dem Controller traegt einen kurzen Missionsblock (worum es geht, dass die Crew die Stationen gemeinsam stabil haelt).
+
+Sektorwechsel: Das `rotate`-Ereignis traegt jetzt `sector` und `sectorCount`. Beim Wechsel zeigt die Bruecke ein grosses Zwischenbild („Sektor N erreicht · Rollenwechsel"), die Phones zeigen „Sektor erreicht" samt neuer Station und Rolle – ein paar Sekunden lang, gedeckt von der Schonzeit `grace`. Danach folgt die Anleitungskarte und das Spiel. Die neue Station je Person kommt im `assignment` direkt nach dem `rotate`.
+
+Architektur: `generate`/`validate` bleiben DOM-frei; `howto` ist reiner Text. Texte knapp, aus der Entfernung lesbar, Farben/Typo ueber die Tokens, deutsche Anfuehrungszeichen, keine Gedankenstriche. Ein Test sichert, dass jedes Mini-Spiel ein vollstaendiges `howto` mitbringt.
+
+Fertig, wenn: Eine Person kann eine Station allein aus der Karte starten, und nach einem Sektorabschluss kuendigen Bruecke und Phones klar Sektor und neue Station an, bevor es weitergeht. Belegt durch `npm test` (67 gruen, inkl. howto-Test) und einen WebSocket-Durchlauf (Bots treiben einen echten Sektorwechsel: `start`-Ereignis, `rotate` mit `sector`/`sectorCount`, danach das `assignment` der neuen Station).
+
+### Runde 3 · Phase 7: Highscore (erledigt)
+
+Ziel: Jede Runde hinterlässt eine Spur. Die Klasse sieht sofort, ob sie ihren eigenen Rekord gebrochen hat.
+
+Score: Jede erfolgreiche Lösung (Einzel-Station oder Reaktor-Einrastung) erhöht den Punkt­zähler um 1. Der Zähler läuft nur in der Phase `running`, startet mit `startGame` und `reset` bei 0. Er liegt in `shared.score` im autoritativen Zustand und wird im `hostState` mitgeschickt. Die Brücke zeigt ihn als großes Panel oben mittig, sichtbar aus der letzten Reihe.
+
+Persistenz: Bei Sieg (nicht bei Niederlage) schreibt der Server einen Eintrag in `data/highscores.json` (Punktzahl, Crewnamen aus dem Roster, ISO-Zeitstempel). Das Verzeichnis und die Datei werden bei Bedarf erstellt; eine leere oder korrupte Datei ergibt eine leere Liste ohne Absturz. `data/` liegt in `.gitignore`. Modul: `server/highscore.js`.
+
+Abschlussbild: Nach Sieg oder Niederlage ersetzt die Brücke das alte Ergebnisfenster durch eine sortierte Top-10-Tabelle (Punkte absteigend, Gleichstand nach früherem Zeitstempel). Der aktuelle Sieg-Eintrag ist cyan hervorgehoben. Die Phones zeigen nur einen kurzen deutschen Hinweis, auf die Brücke zu schauen.
+
+Architektur: `server/highscore.js` kapselt `sort()`, `top()` und `append()` (letzte zwei DOM-frei und testbar). Der Server hängt `highscores` (Top-10-Array) und `currentWinTs` (Zeitstempel des aktuellen Siegs, nur in Phase `won`) an den Host-`state`. Die Brücke rendert daraus Tabelle und Highlight. `test/highscore.test.js` prüft Sortierung, Gleichstand und Trim.
+
+Fertig, wenn: Jeder Solve erhöht die Live-Anzeige, ein Sieg speichert den Eintrag und die Brücke zeigt ihn hervorgehoben in der sortierten Liste, eine Niederlage zeigt die Liste ohne neuen Eintrag, die Phones zeigen den Brücken-Hinweis, und Reset startet eine frische Runde bei 0. Belegt durch `npm test` (143 grün, inkl. 6 Highscore-Tests) und einen Durchlauf mit Debug-Bots (Sieg → Eintrag in `data/highscores.json`, Niederlage → keine Änderung, Reset → Score 0).
+
+## Designhinweise für alle Tickets
+
+- Farben und Schriften nur über `client/styles/tokens.css`.
+- Stil und Stimmung nach `docs/VISUAL_DESIGN.md`: schwerer Stahl, knappes Licht, funktionale Warnakzente, analog-mechanische Bedienoptik.
+- Klangereignisse über den Cue-Katalog in `client/audio.js` auslösen.
