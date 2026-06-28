@@ -8,9 +8,13 @@ const SAMPLE_BASE = "/assets/audio/";
 export function createAudio() {
   let ctx = null;
   const buffers = new Map();
-  let sampleSet = null; // Set der vorhandenen Sample-Cues, einmalig geladen
+  let sampleSet = null; // Map<cue, dateiname> der vorhandenen Samples, einmalig geladen
   let ambient = null;
   let alarmBed = null;
+  // Sprachausgabe-Drosselung: kein Ueberlappen, Mindestabstand je Cue.
+  let voiceBusy = false;
+  const voiceLastPlayed = {};
+  const VOICE_MIN_INTERVAL = 8000;
 
   function ensure() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -23,17 +27,24 @@ export function createAudio() {
     if (ctx.state === "suspended") await ctx.resume();
   }
 
-  // Liest einmalig assets/audio/manifest.json (eine Liste vorhandener Cues).
-  // Nur gelistete Cues werden als Datei geladen, sonst entstuenden 404-Anfragen
-  // fuer jedes fehlende Sample. Fehlt das Manifest, gilt: keine Samples.
+  // Liest einmalig assets/audio/manifest.json.
+  // Neues Format: Objekt { "cue.name": "datei.wav" } – so werden .wav und .mp3
+  // gleichermassen unterstuetzt. Altes Array-Format bleibt rueckwaertskompatibel
+  // (nimmt .mp3 an). Nur gelistete Cues werden geladen; so entstehen keine 404.
   async function loadSampleSet() {
     if (sampleSet) return sampleSet;
     try {
       const res = await fetch(`${SAMPLE_BASE}manifest.json`);
-      const list = res.ok ? await res.json() : [];
-      sampleSet = new Set(Array.isArray(list) ? list : []);
+      const data = res.ok ? await res.json() : {};
+      if (Array.isArray(data)) {
+        sampleSet = new Map(data.map(cue => [cue, `${cue}.mp3`]));
+      } else if (data && typeof data === "object") {
+        sampleSet = new Map(Object.entries(data));
+      } else {
+        sampleSet = new Map();
+      }
     } catch {
-      sampleSet = new Set();
+      sampleSet = new Map();
     }
     return sampleSet;
   }
@@ -41,12 +52,13 @@ export function createAudio() {
   async function tryLoadSample(cue) {
     if (buffers.has(cue)) return buffers.get(cue);
     const present = await loadSampleSet();
-    if (!present.has(cue)) {
+    const filename = present.get(cue);
+    if (!filename) {
       buffers.set(cue, null);
       return null;
     }
     try {
-      const res = await fetch(`${SAMPLE_BASE}${cue}.mp3`);
+      const res = await fetch(`${SAMPLE_BASE}${filename}`);
       if (!res.ok) throw new Error("kein Sample");
       const arr = await res.arrayBuffer();
       const buf = await ensure().decodeAudioData(arr);
@@ -118,6 +130,17 @@ export function createAudio() {
       noiseBurst(0.3, { lowpass: 500, gain: 0.45 });
     },
     "progress.tick": () => noiseBurst(0.04, { lowpass: 3000, gain: 0.15 }),
+    // Meilenstein 50 %: sanftes zweinoetiges Aufwaertssignal
+    "progress.half": () => {
+      tone(440, 0.09, { type: "triangle", gain: 0.10 });
+      tone(550, 0.09, { type: "triangle", gain: 0.10, delay: 0.08 });
+    },
+    // Meilenstein 95 %: helles dreinoetiges Signal kurz vor Sektorabschluss
+    "progress.near": () => {
+      tone(550, 0.07, { type: "triangle", gain: 0.12 });
+      tone(660, 0.07, { type: "triangle", gain: 0.12, delay: 0.07 });
+      tone(880, 0.10, { type: "triangle", gain: 0.12, delay: 0.14 });
+    },
     // Peilton der Reaktor-Kalibrierung: kurzer heller Blip. Der Controller
     // spielt ihn dichter, je naeher der kombinierte Wert am Ziel liegt.
     "reaktor.tune": () => tone(660, 0.06, { type: "triangle", gain: 0.16 }),
@@ -254,5 +277,34 @@ export function createAudio() {
     }
   }
 
-  return { unlock, play, playFile, preloadFile, startAmbient, setAlarm };
+  // Spielt einen Voice-Cue, sofern gerade keine andere Stimme laeuft und der
+  // Mindestabstand seit dem letzten Abspielen dieses Cues verstrichen ist.
+  async function playVoice(cue, gain = 1) {
+    if (voiceBusy) return;
+    const now = Date.now();
+    if (voiceLastPlayed[cue] && now - voiceLastPlayed[cue] < VOICE_MIN_INTERVAL) return;
+    const buf = await tryLoadSample(cue);
+    if (!buf) return;
+    // Nochmals pruefen, da das Laden asynchron war.
+    if (voiceBusy) return;
+    voiceBusy = true;
+    voiceLastPlayed[cue] = Date.now();
+    const c = ensure();
+    const src = c.createBufferSource();
+    const g = c.createGain();
+    g.gain.value = gain;
+    src.buffer = buf;
+    src.connect(g).connect(c.destination);
+    src.onended = () => { voiceBusy = false; };
+    src.start();
+  }
+
+  // Laedt Cues im Voraus (z. B. beim Freischalten des Tons), damit Stimmen
+  // spaeter ohne Netzwerkverzoegerung starten.
+  function preload(...cues) {
+    ensure();
+    for (const cue of cues) tryLoadSample(cue);
+  }
+
+  return { unlock, play, playVoice, preload, playFile, preloadFile, startAmbient, setAlarm };
 }

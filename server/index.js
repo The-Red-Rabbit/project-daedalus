@@ -9,7 +9,7 @@ import { networkInterfaces } from "node:os";
 import { WebSocketServer } from "ws";
 import QRCode from "qrcode";
 import { C2S, S2C, TICK_HZ, STATIONS, PHASES, encode, decode } from "../shared/protocol.js";
-import { createGame } from "./game.js";
+import { createGame, ASTEROID_INTERVAL_SEC, ASTEROID_FILTER_FACTOR } from "./game.js";
 import { createBots } from "./bots.js";
 import { append as appendHighscore, load as loadHighscores, top as topHighscores } from "./highscore.js";
 
@@ -174,11 +174,78 @@ wss.on("connection", (ws) => {
     if (msg.type === C2S.SOLVE_ATTEMPT) {
       const pid = controllers.get(ws);
       if (!pid) return;
-      const result = game.solve(pid, msg.input);
+      const mode = msg.mode === "function" ? "function" : "energy";
+      const result = game.solve(pid, msg.input, mode);
       send(ws, S2C.RESULT, result);
+      if (result.specialFunction) {
+        broadcast(S2C.EVENT, { kind: "specialFunction", ...result.specialFunction });
+      }
       if (result.geloest) {
         const task = game.assignTask(pid); // neue Zufallsaufgabe
         if (task) send(ws, S2C.TASK_ASSIGNED, task);
+      }
+      return;
+    }
+
+    // Hilfe-Button: zufaelligen Helfer waehlen und diesem den Hinweis schicken.
+    if (msg.type === C2S.HELP_REQUEST) {
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      const result = game.requestHelp(pid);
+      if (!result.ok) {
+        send(ws, S2C.EVENT, { kind: "helpDenied", reason: result.reason, remaining: result.remaining ?? 0 });
+        return;
+      }
+      const helperWs = wsOf(result.helperId);
+      if (helperWs) {
+        send(helperWs, S2C.HELP_HINT, { hint: result.hint, requesterLabel: result.requesterLabel });
+      }
+      send(ws, S2C.EVENT, { kind: "helpSent", helperLabel: result.helperLabel });
+      return;
+    }
+
+    // Abstimmung starten (Weg C): Initiator verbraucht sein Recht; der State-Tick
+    // verteilt den neuen vote-Zustand automatisch an alle Controller.
+    if (msg.type === C2S.VOTE_START) {
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      const result = game.voteStart(pid);
+      if (!result.ok) {
+        send(ws, S2C.EVENT, { kind: "voteDenied", reason: result.reason });
+      }
+      return;
+    }
+
+    // Stimme abgeben waehrend laufender Abstimmung.
+    if (msg.type === C2S.VOTE_CAST) {
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      game.voteCast(pid, msg.choice);
+      // State-Tick verteilt hasCast und neue Auszaehlung automatisch.
+      return;
+    }
+
+    // Controller: bereit fuer naechsten Sektor melden.
+    if (msg.type === C2S.READY) {
+      const pid = controllers.get(ws);
+      if (!pid) return;
+      game.markReady(pid);
+      return;
+    }
+
+    // Leitstand: naechsten Sektor starten (Fortschritt muss bei 100 liegen).
+    if (msg.type === C2S.NEXT_SECTOR) {
+      if (!hosts.has(ws)) return;
+      const result = game.advanceSector();
+      if (!result) return; // Fortschritt noch nicht bei 100 oder falscher Zustand
+      if (result.won) {
+        // Sieg: Phase ist jetzt WON, der naechste Tick verteilt den neuen Zustand.
+        // Kein rotate-Ereignis – Bruecke und Controller reagieren auf den Phasenwechsel.
+      } else {
+        // Neuer Sektor: Rollen rotiert (in advanceSector), alle neu setzen.
+        broadcast(S2C.EVENT, { kind: "rotate", sector: result.sector, sectorCount: game.hostState().sectorCount });
+        for (const [cws, pid] of controllers) seat(cws, pid);
+        if (bots) bots.reseat();
       }
       return;
     }
@@ -188,16 +255,6 @@ wss.on("connection", (ws) => {
       if (!pid) return;
       const task = game.assignTask(pid);
       if (task) send(ws, S2C.TASK_ASSIGNED, task);
-      return;
-    }
-
-    // Koop-Station (Reaktor): stufenlose Reglereingabe. Der Server prueft die
-    // Berechtigung; die Wirkung wird ueber den naechsten state sichtbar. Das
-    // Einrasten entscheidet der Server ueber die Haltezeit im Tick (Hold-to-Lock).
-    if (msg.type === C2S.COOP_INPUT) {
-      const pid = controllers.get(ws);
-      if (!pid) return;
-      game.setCoopInput(pid, msg.param, msg.value);
       return;
     }
 
@@ -247,8 +304,7 @@ wss.on("connection", (ws) => {
 
     // Debug-Teststand: setzt diesen Controller direkt als Operator auf eine
     // gewaehlte Station und versetzt das Spiel in den Sandbox-Zustand, damit das
-    // Mini-Spiel sofort mountet. Bei einer Koop-Station kommt automatisch ein Bot
-    // als Partner dazu. Nur mit DAEDALUS_DEBUG, sonst stillschweigend ignoriert.
+    // Mini-Spiel sofort mountet. Nur mit DAEDALUS_DEBUG, sonst stillschweigend ignoriert.
     if (msg.type === C2S.DEBUG_SEAT) {
       if (!DEBUG) return;
       let pid = controllers.get(ws);
@@ -260,8 +316,6 @@ wss.on("connection", (ws) => {
       const assignment = game.debugSeat(pid, label, msg.station, msg.level);
       if (!assignment) return; // unbekannte Station
       send(ws, S2C.JOINED, { role: "controller" });
-      const st = game.station(msg.station);
-      if (st && st.coop && bots) bots.spawnPartner(msg.station);
       seat(ws, pid);
       return;
     }
@@ -285,7 +339,17 @@ wss.on("connection", (ws) => {
 // Spieltakt: Werte aktualisieren und Zustand verteilen.
 const dt = 1 / TICK_HZ;
 setInterval(() => {
-  const { rotated, coopLocks } = game.tick(dt);
+  const { rotated, voteResolved } = game.tick(dt);
+  if (voteResolved) {
+    broadcast(S2C.EVENT, { kind: "voteResult", result: voteResolved.result, yesCount: voteResolved.yesCount, noCount: voteResolved.noCount, chargeConsumed: voteResolved.chargeConsumed });
+  }
+  // Automatische Asteroidenwellen: Poisson-Prozess mit mittlerem Abstand ASTEROID_INTERVAL_SEC.
+  // Sensorik-Sonderfunktion (Asteroiden filtern): waehrend der Filterdauer ist der Takt ASTEROID_FILTER_FACTOR-mal langsamer.
+  const asteroidInterval = game.isAsteroidFiltered() ? ASTEROID_INTERVAL_SEC * ASTEROID_FILTER_FACTOR : ASTEROID_INTERVAL_SEC;
+  if (Math.random() < dt / asteroidInterval) {
+    const event = game.triggerEvent("asteroid");
+    if (event) broadcast(S2C.EVENT, event);
+  }
   // Sektorwechsel: auch die Bots bekommen wie die Controller neue Aufgaben.
   if (rotated && bots) bots.reseat();
   // Bots loesen nach dem Tick und vor dem Versand, damit ihr Stand sofort sichtbar ist.
@@ -314,17 +378,6 @@ setInterval(() => {
   };
   for (const ws of hosts) send(ws, S2C.STATE, hostState);
   for (const [ws, pid] of controllers) send(ws, S2C.STATE, game.participantState(pid));
-  // Reaktor eingerastet (Hold-to-Lock): den beteiligten Controllern eine
-  // Erfolgsrueckmeldung schicken (loest Ton und onResult im Mini-Spiel aus).
-  // Bots sind nicht in der Controller-Liste, sie werden dabei uebersprungen.
-  if (coopLocks && coopLocks.length) {
-    for (const lock of coopLocks) {
-      for (const id of lock.participants) {
-        const w = wsOf(id);
-        if (w) send(w, S2C.RESULT, { geloest: true, teiltreffer: 1, hinweis: "Reaktor kalibriert." });
-      }
-    }
-  }
   // Sektorwechsel: Rollen rotieren, alle bekommen neue Sitzordnung und Aufgabe.
   // Das rotate-Ereignis traegt Sektor und Sektorzahl fuer das Zwischenbild auf
   // Bruecke und Phones; die neue Station je Person folgt im anschliessenden assignment.

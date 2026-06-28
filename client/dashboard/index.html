@@ -93,6 +93,8 @@
       <div class="panel">
         <h2>Steuerung</h2>
         <button id="btn-start" class="btn-start">Spiel starten</button>
+        <button id="btn-next-sector" class="btn-start" disabled style="margin-top:8px; background:var(--accent-green);">Nächsten Sektor starten</button>
+        <div id="ready-info" class="hint" style="display:none; margin-top:6px;"></div>
         <div class="field">Grundstufe
           <select id="sel-difficulty">
             <option value="1">1 leicht</option>
@@ -112,6 +114,11 @@
         <div class="value"><div class="vhead"><span class="label">Hülle</span><b id="n-huelle">100%</b></div><div class="bar"><div id="v-huelle" style="background:var(--status-stable);"></div></div></div>
         <div class="value"><div class="vhead"><span class="label">Energie</span><b id="n-energie">100%</b></div><div class="bar"><div id="v-energie" style="background:var(--accent-yellow);"></div></div></div>
         <div class="value"><div class="vhead"><span class="label">Fortschritt</span><b id="n-fortschritt">0%</b></div><div class="bar"><div id="v-fortschritt" style="background:var(--accent-cyan);"></div></div></div>
+      </div>
+
+      <div class="panel" id="vote-panel">
+        <h2>Joker-Abstimmung</h2>
+        <div id="vote-content" style="font-size:13px; color:var(--text-muted);">–</div>
       </div>
 
       <div class="panel debug" id="debug" hidden>

@@ -25,6 +25,16 @@ let needHowto = false;    // vor dem Mounten erst die Kurzanleitung zeigen (Erst
 let interstitialTimer = null; // Sektorwechsel-Zwischenbild: danach geht es zur Anleitung
 let interSector = 0, interSectorCount = 0, interStationKnown = false; // Daten des Zwischenbilds
 const INTERSTITIAL_MS = 4200; // lang genug zum Lesen; die Schonzeit nach dem Wechsel deckt es
+let stationId = null;     // gesetzt mit der Zuweisung (fuer Sonderfunktions-Label)
+let currentMode = "energy"; // Modus der aktuellen Loesung: "energy" (Weg A) | "function" (Weg B)
+
+// Sonderfunktionsnamen je Station (Menue B), aus GAME_DESIGN.md Abschnitt 7.
+const STATION_SPECIAL = {
+  bordcomputer: "Schadenskontrolle",
+  sensorik:     "Asteroiden filtern",
+  navigation:   "Kurskorrektur",
+  reaktor:      "Energieschub",
+};
 
 // Debug-Teststand (/dev): per Query-Parameter direkt auf eine Station setzen,
 // ohne Lobby und Rotation. Greift nur, wenn der Server mit DAEDALUS_DEBUG laeuft
@@ -52,6 +62,14 @@ const net = connect({
     // die Anleitung, dann das Spiel. Der Start braucht kein Zwischenbild – dort
     // fuehrt die Phase direkt zur Anleitungskarte.
     if (msg.type === S2C.EVENT && msg.kind === "rotate") showInterstitial(msg.sector, msg.sectorCount);
+    // Hilfe-Button: Hinweis empfangen (dieser Spieler wurde als Helfer ausgewaehlt)
+    if (msg.type === S2C.HELP_HINT) showHelpHint(msg.hint, msg.requesterLabel);
+    // Hilfe gesendet / abgelehnt: kurzes Feedback an den Anfrager
+    if (msg.type === S2C.EVENT && msg.kind === "helpSent") showToast(`Hilfe auf dem Weg zu ${msg.helperLabel}.`);
+    if (msg.type === S2C.EVENT && msg.kind === "helpDenied" && msg.reason !== "cooldown") showToast("Hilfe gerade nicht möglich.");
+    if (msg.type === S2C.EVENT && msg.kind === "voteResult") {
+      showToast(msg.result === "yes" ? "Joker eingesetzt – +25 Hülle" : "Joker abgelehnt.", 4000);
+    }
   },
 });
 
@@ -61,10 +79,108 @@ const net = connect({
 if (devSeat) startDevSeat();
 else showJoin();
 
+// Kurze Einblendung fuer Feedback-Meldungen (wiederverwendet das vorhandene .toast-CSS).
+function showToast(msg, durationMs = 2800) {
+  let toast = document.getElementById("toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "toast";
+    toast.className = "toast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => toast.classList.remove("show"), durationMs);
+}
+
+// Warteschlange fuer eingehende Hilferufe: kommen mehrere gleichzeitig an (grosse
+// Crew, gleicher Helfer zufaellig mehrfach gewaehlt), werden sie nacheinander
+// angezeigt statt sich gegenseitig zu ueberschreiben.
+const helpQueue = [];
+
+function showHelpHint(hint, requesterLabel) {
+  helpQueue.push({ hint, requesterLabel });
+  if (helpQueue.length === 1) renderNextHelpHint();
+}
+
+function renderNextHelpHint() {
+  const { hint, requesterLabel } = helpQueue[0];
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const remaining = helpQueue.length - 1;
+
+  let overlay = document.getElementById("help-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "help-overlay";
+    overlay.className = "help-overlay";
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML =
+    `<div class="help-box">` +
+    `<div class="help-kicker">Hilferuf${remaining > 0 ? ` · noch ${remaining} weitere` : ""}</div>` +
+    `<div class="help-for">von ${esc(requesterLabel)}</div>` +
+    `<div class="help-cta">Ruf das deinem Crewmitglied zu:</div>` +
+    `<div class="help-hint-text">${esc(hint)}</div>` +
+    `<button class="help-dismiss">${remaining > 0 ? "Verstanden · nächster" : "Verstanden"}</button>` +
+    `</div>`;
+  overlay.hidden = false;
+  overlay.querySelector(".help-dismiss").addEventListener("click", () => {
+    audio.play("ui.confirm");
+    helpQueue.shift();
+    if (helpQueue.length > 0) {
+      renderNextHelpHint();
+    } else {
+      overlay.hidden = true;
+    }
+  });
+  audio.play("ui.toggle");
+}
+
+// Aktualisiert alle Hilfe-Buttons im DOM: Text und Zustand je nach Cooldown.
+function refreshHelpButton() {
+  const cooldown = lastState && lastState.helpCooldown != null ? lastState.helpCooldown : 0;
+  for (const btn of document.querySelectorAll(".btn-help")) {
+    btn.disabled = cooldown > 0;
+    btn.textContent = cooldown > 0 ? `Hilfe rufen (${cooldown} s)` : "Hilfe rufen";
+  }
+}
+
+// Hilfeanfrage abschicken.
+function sendHelpRequest() {
+  audio.play("ui.toggle");
+  net.send(C2S.HELP_REQUEST, {});
+  // Sofort lokal sperren; der Server bestaetigt per State-Update
+  for (const btn of document.querySelectorAll(".btn-help")) btn.disabled = true;
+}
+
+// In-Game Hilfe-Leiste ueber dem HUD: persistent, wird nur ein/ausgeblendet.
+function showHelpBar() {
+  let bar = document.getElementById("help-bar");
+  if (!bar) {
+    bar = document.createElement("div");
+    bar.id = "help-bar";
+    bar.className = "help-bar";
+    bar.innerHTML = `<button class="btn-help">Hilfe rufen</button>`;
+    document.body.appendChild(bar);
+    bar.querySelector(".btn-help").addEventListener("click", sendHelpRequest);
+  }
+  bar.hidden = false;
+  document.body.classList.add("has-help-bar");
+  refreshHelpButton();
+}
+
+function hideHelpBar() {
+  const bar = document.getElementById("help-bar");
+  if (bar) bar.hidden = true;
+  document.body.classList.remove("has-help-bar");
+}
+
 function clear() {
   if (current && current.unmount) current.unmount();
   current = null;
   clearTimeout(interstitialTimer);
+  hideHelpBar();
   app.innerHTML = "";
 }
 
@@ -112,6 +228,7 @@ function startDevSeat() {
 
 function applyAssignment(msg) {
   role = msg.role;
+  stationId = msg.stationId || null;
   stationName = msg.stationName || "";
   setTopbar(true);
   // Jede (Neu-)Zuweisung ist ein frisches Hinsetzen: vor dem Mounten erst die
@@ -129,9 +246,12 @@ function applyAssignment(msg) {
 
 function applyTask(msg) {
   pendingTask = msg;
-  // Aufgaben-Refresh nach dem Loesen mountet sofort neu; waehrend Zwischenbild
-  // oder Anleitung wartet die Aufgabe auf „Los".
-  if (gamePhase === PHASES.RUNNING && screen === "game") mountGame();
+  // Nach korrekter Loesung (TASK_ASSIGNED kommt nur dann) zum Menue, damit der
+  // Spieler den Weg fuer die naechste Loesung waehlt. Teststand: direkt mounten.
+  if (gamePhase === PHASES.RUNNING && screen === "game") {
+    if (devSeat) mountGame();
+    else showMenu();
+  }
 }
 
 // --- Phasensteuerung ------------------------------------------------------
@@ -140,6 +260,13 @@ function updateState(state) {
   gamePhase = state.phase;
   lastState = state;
   updateHud(state);
+  updateVoteOverlay(state);
+  // Beitragszaehler und Weg-C-Schaltflaeche im Menue live aktualisieren.
+  const contribEl = document.getElementById("menu-contrib");
+  if (contribEl && state.contributions != null) contribEl.textContent = `✦ ${state.contributions}`;
+  refreshVoteButton(document.getElementById("menu-btn-c"));
+  // Hilfe-Button in Menue und Spiel live auf Cooldown pruefen.
+  refreshHelpButton();
   // Live-Werte (z. B. Match der Koop-Station) an das laufende Mini-Spiel reichen.
   if (screen === "game" && current && current.onState) current.onState(state);
   if (!joined) return;
@@ -148,8 +275,13 @@ function updateState(state) {
     return;
   }
   if (gamePhase === PHASES.RUNNING) {
-    // Zwischenbild und Anleitung steuern sich selbst (Timer bzw. „Los"); nicht stoeren.
-    if (screen === "interstitial" || screen === "howto") return;
+    // Sektorgrenze: Fortschritt 100 → Bereit-Bildschirm anzeigen.
+    if (state.shared && state.shared.fortschritt >= 100) {
+      if (screen !== "boundary") showBoundary();
+      return;
+    }
+    // Menue, Zwischenbild, Anleitung und Sektorgrenze steuern sich selbst; nicht stoeren.
+    if (screen === "menu" || screen === "interstitial" || screen === "howto" || screen === "boundary") return;
     if (screen !== "game") enterStation();
     return;
   }
@@ -157,14 +289,157 @@ function updateState(state) {
   if (screen !== "waiting") showWaiting();
 }
 
-// Beim Betreten einer Station: erst die Kurzanleitung, sonst direkt mounten.
-function enterStation() {
-  if (!pendingTask) {
-    showWaiting();
+// Liefert den Zustand von Weg C (Joker): ob er aktiv ist und warum nicht.
+function voteButtonState() {
+  const charges = lastState?.shared?.jokerCharges ?? 3;
+  const hasInitiated = !!(lastState?.hasInitiatedVote);
+  const voteActive = !!(lastState?.vote);
+  const canStart = charges > 0 && !hasInitiated && !voteActive;
+  let label = canStart
+    ? `Abstimmung starten · ${charges} ◈`
+    : `Abstimmung starten`;
+  let reason = "";
+  if (!canStart) {
+    reason = hasInitiated ? "bereits genutzt" : charges <= 0 ? "keine Ladungen mehr" : "läuft bereits";
+  }
+  return { canStart, label, reason };
+}
+
+// Aktualisiert Schaltflaechenzustand von Weg C im Menue (wird per updateState live gehalten).
+function refreshVoteButton(btn) {
+  if (!btn) return;
+  const { canStart, label, reason } = voteButtonState();
+  btn.disabled = !canStart;
+  const txt = btn.querySelector(".menu-text");
+  if (!txt) return;
+  txt.textContent = reason ? `${label} (${reason})` : label;
+}
+
+// Abstimmungs-Overlay: wird ueber dem aktuellen Bildschirm eingeblendet, wenn
+// eine Joker-Abstimmung laeuft. Verschwindet automatisch, wenn der Vote endet.
+function updateVoteOverlay(state) {
+  const vote = state.vote;
+  let overlay = document.getElementById("vote-overlay");
+  if (!vote) {
+    if (overlay) overlay.hidden = true;
     return;
   }
-  if (needHowto && !devSeat) showHowto();
-  else mountGame();
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "vote-overlay";
+    overlay.className = "vote-overlay";
+    overlay.innerHTML =
+      `<div class="vote-box">` +
+      `<div class="vote-kicker">Abstimmung läuft</div>` +
+      `<div class="vote-initiator" id="vote-initiator"></div>` +
+      `<div class="vote-timer" id="vote-timer">10</div>` +
+      `<div class="vote-tally" id="vote-tally"></div>` +
+      `<div class="vote-actions" id="vote-actions">` +
+      `<button class="vote-yes" id="vote-yes">✓ Ja</button>` +
+      `<button class="vote-no" id="vote-no">✗ Nein</button>` +
+      `</div>` +
+      `<div class="vote-cast-msg" id="vote-cast-msg" hidden>Stimme abgegeben ✓</div>` +
+      `</div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector("#vote-yes").addEventListener("click", () => {
+      audio.play("ui.confirm");
+      net.send(C2S.VOTE_CAST, { choice: "yes" });
+    });
+    overlay.querySelector("#vote-no").addEventListener("click", () => {
+      audio.play("ui.toggle");
+      net.send(C2S.VOTE_CAST, { choice: "no" });
+    });
+  }
+  overlay.hidden = false;
+  document.getElementById("vote-initiator").textContent = `von ${vote.initiatorLabel || "…"}`;
+  document.getElementById("vote-timer").textContent = String(vote.timeLeft ?? 10);
+  document.getElementById("vote-tally").textContent = `${vote.castCount} von ${vote.total} abgestimmt`;
+  const hasCast = !!vote.hasCast;
+  document.getElementById("vote-actions").hidden = hasCast;
+  document.getElementById("vote-cast-msg").hidden = !hasCast;
+}
+
+// Stationsmenue (A/B/C): erscheint nach der Anleitung und nach jeder geloesten Aufgabe.
+function showMenu() {
+  if (!pendingTask) { showWaiting(); return; }
+  clear();
+  screen = "menu";
+  setTopbar(true);
+  const special = STATION_SPECIAL[stationId] || "Sonderfunktion";
+  const contrib = lastState && lastState.contributions != null ? lastState.contributions : 0;
+  const { canStart, label, reason } = voteButtonState();
+  const cText = reason ? `${label} (${reason})` : label;
+  const wrap = document.createElement("div");
+  wrap.className = "screen menu";
+  wrap.innerHTML =
+    `<div class="menu-header">` +
+    `<span class="menu-station">${stationName || "Station"}</span>` +
+    `<span class="menu-contrib" id="menu-contrib">✦ ${contrib}</span>` +
+    `</div>` +
+    `<div class="menu-label">Wähle deinen Weg</div>` +
+    `<div class="menu-choices">` +
+    `<button class="menu-btn menu-a" id="menu-btn-a">` +
+    `<span class="menu-key">A</span>` +
+    `<span class="menu-text">Für Energie lösen</span>` +
+    `</button>` +
+    `<button class="menu-btn menu-b" id="menu-btn-b">` +
+    `<span class="menu-key">B</span>` +
+    `<span class="menu-text">Für ${special} lösen</span>` +
+    `</button>` +
+    `<button class="menu-btn menu-c" id="menu-btn-c"${canStart ? "" : " disabled"}>` +
+    `<span class="menu-key">C</span>` +
+    `<span class="menu-text">${cText}</span>` +
+    `</button>` +
+    `</div>`;
+  app.appendChild(wrap);
+  wrap.querySelector("#menu-btn-a").addEventListener("click", () => {
+    audio.play("ui.toggle");
+    currentMode = "energy";
+    mountGame();
+  });
+  wrap.querySelector("#menu-btn-b").addEventListener("click", () => {
+    audio.play("ui.toggle");
+    currentMode = "function";
+    mountGame();
+  });
+  wrap.querySelector("#menu-btn-c").addEventListener("click", () => {
+    audio.play("ui.confirm");
+    net.send(C2S.VOTE_START, {});
+  });
+}
+
+// Sektorgrenze: Fortschritt hat 100 % erreicht. Spieler meldet sich bereit;
+// die Lehrkraft startet am Leitstand den naechsten Sektor.
+function showBoundary() {
+  clear();
+  screen = "boundary";
+  setTopbar(true);
+  const wrap = document.createElement("div");
+  wrap.className = "screen boundary";
+  wrap.innerHTML =
+    `<div class="boundary-kicker">Sektor abgeschlossen</div>` +
+    `<div class="boundary-progress">100 %</div>` +
+    `<p class="muted">Der nächste Sektor wird von der Lehrkraft freigegeben. Melde dich bereit.</p>` +
+    `<button class="bc-confirm" id="btn-ready">Bereit</button>` +
+    `<div class="boundary-wait" id="boundary-wait" hidden>` +
+    `<div class="wait-dots"><span></span><span></span><span></span></div>` +
+    `<p class="muted">Bereit gemeldet · warte auf Lehrkraft …</p>` +
+    `</div>`;
+  app.appendChild(wrap);
+  wrap.querySelector("#btn-ready").addEventListener("click", () => {
+    audio.play("ui.confirm");
+    net.send(C2S.READY, {});
+    wrap.querySelector("#btn-ready").disabled = true;
+    wrap.querySelector("#boundary-wait").hidden = false;
+  });
+}
+
+// Beim Betreten einer Station: Teststand direkt mounten; sonst erst Anleitung, dann Menue.
+function enterStation() {
+  if (!pendingTask) { showWaiting(); return; }
+  if (devSeat) { mountGame(); return; }
+  if (needHowto) { showHowto(); return; }
+  showMenu();
 }
 
 function showWaiting() {
@@ -213,14 +488,12 @@ function mountGame() {
     audio,
     station: stationName,
     role,
-    submit: (input) => net.send(C2S.SOLVE_ATTEMPT, { input }),
-    // Koop-Station (Reaktor): stufenlose Reglereingabe. Das Einrasten entscheidet
-    // der Server ueber die Haltezeit (Hold-to-Lock), keine Bestaetigung noetig.
-    coopInput: (param, value) => net.send(C2S.COOP_INPUT, { param, value }),
+    // Loesung abschicken: Modus (Weg A oder B) wird mitgesendet.
+    submit: (input) => net.send(C2S.SOLVE_ATTEMPT, { input, mode: currentMode }),
   };
   current = mod.mount(root, task, ctx) || null;
-  // Direkt mit dem letzten bekannten Zustand versorgen (Koop: Ziel/Match/Solo).
   if (current && current.onState && lastState) current.onState(lastState);
+  showHelpBar();
 }
 
 // --- Sektorwechsel-Zwischenbild und Kurzanleitung -------------------------
@@ -287,7 +560,7 @@ function showHowto() {
   wrap.querySelector(".howto-go").addEventListener("click", () => {
     audio.play("ui.toggle");
     needHowto = false;
-    mountGame();
+    showMenu();
   });
 }
 

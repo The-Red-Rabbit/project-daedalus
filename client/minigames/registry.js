@@ -1,13 +1,13 @@
 // Anmeldung aller Mini-Spiele. Server und Controller nutzen dieselbe Liste.
 // Wichtig: relative Importpfade, damit Node (Server) und Browser sie gleich aufloesen.
 import bordcomputer from "./bordcomputer.js";
-import tiefpassfilter from "./tiefpassfilter.js";
+import filterauswahl from "./filterauswahl.js";
 import zahlensysteme from "./zahlensysteme.js";
-import reaktor from "./reaktor.js";
+import bauteiltausch from "./bauteiltausch.js";
 
 export const registry = {
   [bordcomputer.id]: bordcomputer,
-  [tiefpassfilter.id]: tiefpassfilter,
+  [filterauswahl.id]: filterauswahl,
   [zahlensysteme.id]: zahlensysteme,
-  [reaktor.id]: reaktor,
+  [bauteiltausch.id]: bauteiltausch,
 };

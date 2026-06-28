@@ -124,18 +124,50 @@ Die Prüfungsaufgabe verlangt, den Lernerfolg sichtbar zu machen. Das Spiel zeig
 
 Eine tiefere Datenerfassung (etwa Fehlerquoten je Themenfeld und Person für die Nachbesprechung) ist möglich, aber bewusst nicht Teil dieser Überarbeitung. Sie steht als optionaler späterer Schritt unter den offenen Punkten. Die schriftliche Reflexion zur Aufgabenstellung entsteht separat.
 
-## 12. Stellschrauben (Vorschlagswerte)
+## 12. Stellschrauben (abgestimmte Werte, Stand 26.06.2026)
 
-Die folgenden Startwerte gehören gebündelt nach oben in `server/game.js` und werden in Paket P6 am Spiel justiert. Sie sind hier nur Ausgangspunkt.
+Alle Werte liegen gebündelt am Anfang von `server/game.js`. Sie wurden über Bot-Komplettdurchläufe (simulierte aktive und passive Klassen) abgestimmt. Ziel-Spielzeit: **~8 Minuten reine Spielzeit** plus Lehrkraft-Pausen an den Sektorgrenzen → **12–20 Minuten gesamt** je nach Gesprächsbedarf.
 
-- Asteroidenschaden je Treffer und Trefferrate
-- Energie: Ladewert je Lösung (A), langsamer Schwund über die Zeit, Abzug je Fehlversuch
-- Fortschritt: Tempo je Energiestufe
-- Hülle: automatische Reparatur beim Sektorwechsel (plus 15), Joker-Reparatur (plus 25)
-- Sonderfunktionen: Höhe des Energieschubs, Dauer der gesenkten Asteroidenrate, Höhe des Fortschritt-Schubs, Hüllen-Reparatur per Bordcomputer
-- Joker: Anzahl je Spiel (3), Mehrheit (einfach)
-- Hilfe-Button: Cooldown (20 Sekunden)
-- Sektoren je Lauf
+| Stellschraube | Wert | Erläuterung |
+| --- | --- | --- |
+| **Asteroiden** | | |
+| Schaden je Treffer | 18 | 6 Treffer deplettieren die volle Hülle |
+| Mittlerer Abstand | 90 s | Poisson-Prozess; bei 3 Sektoren × 155 s ≈ 5 Treffer erwartet |
+| Filter-Dauer (Sensorik) | 30 s | Asteroiden filtern hält 30 Sekunden an |
+| Filter-Faktor | 4 × seltener | Einschlagrate ÷ 4 während des Filters |
+| **Energie** | | |
+| Schwund ohne Aktivität | 3 / s | Aktive Crew (Solves) hält Energie nahe 100; passive Crew verliert deutlich |
+| Ladung je Lösungs-Solve (A) | +10 | |
+| Abzug je Fehlversuch | −5 | Blindes Raten wird teuer |
+| Energieschub (Reaktor, B) | +20 | Sofort-Bonus über den Weg-A-Ladewert hinaus |
+| **Fortschritt** | | |
+| Max. Tempo bei 100 % Energie | 0,7 % / s | Sektor dauert bei voller Energie ~143 s; bei 50 % Energie ~286 s |
+| Kurskorrektur (Navigation, B) | +15 % | Sofort-Schub, entspricht ~20 s aktivem Fahren |
+| **Hülle** | | |
+| Unbesetzte Station | −0,5 / s | |
+| Besetzt, nicht stabil | −0,10 / s | Stationen stabilisieren nach der ersten richtigen Lösung |
+| Reparatur beim Sektorwechsel | +15 | Automatisch; 2 Wechsel = +30 gesamt |
+| Joker-Reparatur | +25 | Bei erfolgreicher Abstimmung |
+| Schadenskontrolle (Bordcomputer, B) | +20 | Sofort-Reparatur |
+| Schonzeit nach Start/Wechsel | 6 s | Kein Verlust während der Anlaufzeit |
+| **Joker** | | |
+| Ladungen je Lauf | 3 | |
+| Abstimmungsfenster | 10 s | |
+| **Hilfe-Button** | | |
+| Cooldown nach Anfrage | 20 s | |
+| **Lauf** | | |
+| Sektoren je Spiel | 3 | |
+
+### Durchlauf-Ergebnisse (Bot-Simulation, Seed 42)
+
+| Szenario | Ergebnis | Zeit | Hülle | Asteroiden |
+| --- | --- | --- | --- | --- |
+| 12 aktive Bots (15 % Fehler, 3–9 s) | **Sieg** | 7,7 min | 40 % | 5 |
+| 12 passive Bots (65 % Fehler, 12–30 s) | **Niederlage** | 4,4 min | 0 % (hull_depleted) | 6 |
+| 6 aktive Bots | **Sieg** | 7,8 min | 3 % | 7 |
+| 20 Bots (18 % Fehler, 4–12 s) | **Sieg** | 7,7 min | 21 % | 6 |
+
+Die Niederlage ist auf dem Beamer lesbar: Hülle = 0, Verlustgrund `hull_depleted`, dazu das Beitragsbild je Person (`endContributions`). In einer echten Klasse mit frei reitenden Lernenden zeigt das Beitragsbild die Schieflage deutlich (aktive Personen: viele Punkte, passive: nahe null).
 
 ## 13. Was sich gegenüber dem alten Stand ändert
 
@@ -149,7 +181,5 @@ Die folgenden Startwerte gehören gebündelt nach oben in `server/game.js` und w
 Diese Änderungen brechen einen Teil der bestehenden Tests. Jedes Umsetzungspaket aktualisiert die betroffenen Tests mit.
 
 ## 14. Offene Punkte
-
-- Genaue Zahlenbalance (Paket P6), geprüft über Komplettdurchläufe mit Bots für Sieg und Niederlage.
 - Optionale Datenerfassung je Themenfeld und Person für die Nachbesprechung.
 - Barrierearmut: Farbe nie als alleinige Information, ausreichend große Schrift auf dem Smartphone.

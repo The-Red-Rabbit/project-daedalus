@@ -95,6 +95,16 @@ export default {
     return { value: task.target };
   },
 
+  // Hinweistext fuer den Hilfe-Button (DOM-frei, server-autoritaer).
+  // Hex-Ziel: Dezimalwert nennen; Dezimal-Ziel: erste drei Bits der Binaerdarstellung.
+  hint(task) {
+    if (task.displayBase === 16) {
+      return `Dezimalwert des Ziels: ${task.target}`;
+    }
+    const first3 = task.target.toString(2).padStart(task.bits, "0").slice(0, 3);
+    return `Die ersten drei Bits der Lösung (von links): ${first3}`;
+  },
+
   mount(root, task, ctx) {
     const bitsOn = new Array(task.bits).fill(0); // Index 0 = hoechstwertiges Bit
     const weightOf = (i) => 1 << (task.bits - 1 - i);

@@ -45,6 +45,15 @@ const GATE_LABELS = {
   AND: 'UND', OR: 'ODER', XOR: 'XOR', NAND: 'NAND', NOR: 'NOR',
 };
 
+// Erklaerungen der Gatterlogik fuer den Hilfe-Hinweis (auf Deutsch).
+const GATE_EXPLANATIONS = {
+  AND:  "beide Eingänge müssen AN sein, damit der Ausgang AN ist",
+  OR:   "mindestens ein Eingang muss AN sein, damit der Ausgang AN ist",
+  XOR:  "genau ein Eingang muss AN sein, damit der Ausgang AN ist",
+  NAND: "nur wenn beide Eingänge AN sind, ist der Ausgang AUS",
+  NOR:  "beide Eingänge müssen AUS sein, damit der Ausgang AN ist",
+};
+
 // Erzeugt einen lesbaren Gatternamen auch für Zwei-Gatter-Ketten ("AND+XOR" → "UND+XOR").
 function localizeGateType(gateType) {
   if (!gateType) return null;
@@ -129,6 +138,32 @@ export default {
    */
   solve(task) {
     return { cells: task.solutionBoard.cells, gates: task.solutionBoard.gates };
+  },
+
+  /**
+   * Hinweistext fuer den Hilfe-Button (DOM-frei, server-autoritaer).
+   * Mit Gatter: erklaert die Gatterlogik; ohne Gatter: zaehlt noch zu drehende Kacheln.
+   */
+  hint(task) {
+    if (task.gateType) {
+      const parts = task.gateType.split('+').map(g => {
+        const expl = GATE_EXPLANATIONS[g];
+        return expl ? `${g}-Gatter: ${expl}` : g;
+      });
+      return parts.join(' | ');
+    }
+    // Kein Gatter: Anzahl der Kacheln zaehlen, die gedreht werden muessen
+    let wrongCount = 0;
+    const sol = task.solutionBoard.cells;
+    const init = task.board.cells;
+    for (let r = 0; r < sol.length; r++) {
+      for (let c = 0; c < sol[r].length; c++) {
+        const s = sol[r][c];
+        const i = init[r][c];
+        if (s.kind === 'tile' && !s.locked && s.rotation !== i.rotation) wrongCount++;
+      }
+    }
+    return `${wrongCount} Kachel${wrongCount !== 1 ? 'n müssen' : ' muss'} noch gedreht werden.`;
   },
 
   mount,

@@ -11,7 +11,8 @@ const el = (id) => document.getElementById(id);
 const renderer = createRenderer(el("scene"));
 const audio = createAudio();
 let audioOn = false; // erst nach "Ton an" darf Audio spielen
-const WELCOME_URL = "/assets/audio/AI_welcome.wav"; // Begruessung der Bord-KI beim Start
+
+const VOICE_CUES = ["voice.welcome", "voice.hull_low", "voice.hull_crit", "voice.external_damage"];
 
 const statusColor = {
   [STATUS.STABLE]: "var(--status-stable)",
@@ -52,7 +53,7 @@ const net = connect({
     if (msg.type === S2C.EVENT && msg.kind === "start") {
       if (audioOn) {
         audio.play("ui.confirm");
-        audio.playFile(WELCOME_URL); // einmalige Begruessung der Bord-KI
+        audio.playVoice("voice.welcome");
       }
       banner(`Start · Sektor ${msg.sector}`);
     }
@@ -60,6 +61,7 @@ const net = connect({
       if (audioOn) {
         audio.play("alarm.asteroid");
         audio.play("impact.hull");
+        audio.playVoice("voice.external_damage");
       }
       renderer.shake();
     }
@@ -112,6 +114,8 @@ function updateState(state) {
   renderStations(state.stations);
   renderReaktor(state);
   renderScore(state);
+  renderJoker(state);
+  renderVotePanel(state);
   renderHighscores(state);
   // Schonzeit-Hinweis: ruhiger Anflug, in dem nichts verfaellt.
   const graceHint = el("grace-hint");
@@ -122,6 +126,35 @@ function updateState(state) {
     graceHint.hidden = true;
   }
   renderer.setState(state);
+  // Huellenuebergaenge erkennen und Sprachansage ausloesen (nur waehrend des Spiels).
+  if (audioOn && state.phase === PHASES.RUNNING) {
+    const hull = state.shared.huelle;
+    if (prevHull !== null) {
+      if (prevHull >= 10 && hull < 10) {
+        audio.playVoice("voice.hull_crit");
+      } else if (prevHull >= 50 && hull < 50) {
+        audio.playVoice("voice.hull_low");
+      }
+    }
+    prevHull = hull;
+  } else {
+    prevHull = null;
+  }
+  // Fortschritts-Meilensteine (50 % und 95 %), einmal pro Schwelle pro Sektor.
+  if (state.phase === PHASES.RUNNING) {
+    if (state.sector !== prevSector) {
+      firedMilestones.clear();
+      prevSector = state.sector;
+    }
+    if (audioOn) {
+      const p = state.shared.fortschritt;
+      if (p >= 50 && !firedMilestones.has(50)) { firedMilestones.add(50); audio.play("progress.half"); }
+      if (p >= 95 && !firedMilestones.has(95)) { firedMilestones.add(95); audio.play("progress.near"); }
+    }
+  } else {
+    prevSector = null;
+    firedMilestones.clear();
+  }
   // Alarmbett bei kritischer Huelle (nur im laufenden Spiel und wenn Ton frei).
   if (audioOn) audio.setAlarm(state.phase === PHASES.RUNNING && state.shared.huelle <= 30);
 }
@@ -147,6 +180,27 @@ function renderHighscores(state) {
   el("hs-sub").textContent = won
     ? `Ergebnis dieser Runde: ${state.shared.score ?? 0} Punkte`
     : `Ergebnis dieser Runde: ${state.shared.score ?? 0} Punkte · Die Hülle ist zusammengebrochen.`;
+
+  // Niederlage: Beitragsschnappschuss gross anzeigen – aus dem Klassenraum lesbar.
+  const lossPanel = el("loss-panel");
+  if (!won && state.endContributions && state.endContributions.length) {
+    lossPanel.hidden = false;
+    const sorted = [...state.endContributions].sort((a, b) => b.contributions - a.contributions);
+    const maxContrib = sorted[0].contributions || 1;
+    lossPanel.innerHTML =
+      `<div class="loss-reason">■ Hülle 0% – die Daedalus ist verloren</div>` +
+      `<div class="loss-crew">` +
+      sorted.map((p, i) => {
+        const isTop = i === 0 && p.contributions > 0;
+        return `<div class="loss-entry${isTop ? " top" : ""}">` +
+          `<span class="loss-name">${p.label}</span>` +
+          `<span class="loss-contrib">${p.contributions}<span class="loss-contrib-label">Beiträge</span></span>` +
+          `</div>`;
+      }).join("") +
+      `</div>`;
+  } else {
+    lossPanel.hidden = true;
+  }
 
   const list = state.highscores || [];
   const winTs = state.currentWinTs || null;
@@ -195,6 +249,11 @@ function applyPhase(state) {
   }
 }
 let prevPhase = PHASES.LOBBY;
+let prevVoteActive = false;
+let prevJokerCharges = null;
+let prevHull = null; // fuer Huellenuebergangs-Erkennung
+let prevSector = null; // fuer Fortschritts-Meilensteine
+const firedMilestones = new Set(); // welche Prozentschwellen im laufenden Sektor gespielt wurden
 
 function renderLobbyCrew(roster) {
   el("lobby-count").textContent = roster.length;
@@ -210,6 +269,48 @@ function renderLobbyCrew(roster) {
     chip.textContent = p.label;
     root.appendChild(chip);
   }
+}
+
+// Joker-Ladungen als Pip-Reihe und Zaehler im HUD anzeigen.
+function renderJoker(state) {
+  const charges = state.shared?.jokerCharges ?? 3;
+  // Maximale Ladungen aus der Anfangsanzahl ableiten: so viele Pips zeigen wie zu Beginn.
+  const maxCharges = Math.max(charges, prevJokerCharges ?? charges, 3);
+  el("n-joker").textContent = `◈ ${charges}`;
+  const pips = el("joker-pips");
+  pips.innerHTML = "";
+  for (let i = 0; i < maxCharges; i++) {
+    const pip = document.createElement("span");
+    pip.className = `joker-pip${i < charges ? "" : " used"}`;
+    pips.appendChild(pip);
+  }
+  // Ergebnis-Banner, wenn eine Abstimmung gerade aufgeloest wurde.
+  const voteIsActive = !!(state.vote);
+  if (prevVoteActive && !voteIsActive) {
+    const chargesNow = charges;
+    const chargesWere = prevJokerCharges;
+    if (chargesWere !== null && chargesNow < chargesWere) {
+      banner("◈ Joker eingesetzt! Hülle +25");
+    } else {
+      banner("Abstimmung abgelehnt – kein Joker");
+    }
+  }
+  prevVoteActive = voteIsActive;
+  prevJokerCharges = charges;
+}
+
+// Joker-Abstimmung: grosse, klassenraumlesbare Einblendung.
+function renderVotePanel(state) {
+  const panel = el("vote-panel");
+  const vote = state.vote;
+  if (!vote || state.phase !== PHASES.RUNNING) {
+    panel.hidden = true;
+    return;
+  }
+  panel.hidden = false;
+  el("vp-initiator").textContent = `Gestartet von ${vote.initiatorLabel || "…"}`;
+  el("vp-timer").textContent = String(vote.timeLeft ?? 10);
+  el("vp-tally").textContent = `${vote.castCount} von ${vote.total} abgestimmt`;
 }
 
 // Reaktor-Ziel und Naehe gross anzeigen, solange eine Koop-Station mitspielt.
@@ -261,7 +362,8 @@ function renderStations(stations) {
 el("btn-audio").addEventListener("click", async () => {
   await audio.unlock();
   audio.startAmbient();
-  audio.preloadFile(WELCOME_URL); // damit die Begruessung beim Start sofort spielt
+  audio.preload(...VOICE_CUES); // alle Voice-Lines vorab laden
+  if (prevPhase === PHASES.LOBBY) audio.playVoice("voice.welcome");
   audioOn = true;
   el("btn-audio").textContent = "♪ Ton an ✓";
 });

@@ -69,15 +69,54 @@ function updateState(state) {
 
   renderStations(state.stations || []);
   renderCrew(state.roster || []);
-  setControls(phase);
+  renderVote(state);
+  setControls(state);
 }
 
-function setControls(phase) {
+// Kompakter Joker-Status: Ladungen und laufende Abstimmung fuer die Lehrkraft.
+function renderVote(state) {
+  const charges = state.shared?.jokerCharges ?? 3;
+  const vote = state.vote;
+  const content = el("vote-content");
+  if (!content) return;
+  if (!vote) {
+    const pips = "◈".repeat(charges) + (charges < 3 ? "◇".repeat(3 - charges) : "");
+    content.innerHTML =
+      `<span style="font-family:var(--font-mono); color:var(--accent-yellow); font-size:18px; letter-spacing:0.1em;">${pips}</span>` +
+      `<span style="margin-left:8px;">${charges} Ladung${charges === 1 ? "" : "en"} verbleibend</span>`;
+    return;
+  }
+  content.innerHTML =
+    `<div style="margin-bottom:6px; color:var(--accent-yellow); font-weight:600; letter-spacing:0.06em; text-transform:uppercase;">Läuft · noch ${vote.timeLeft ?? "?"}s</div>` +
+    `<div>Initiiert von: <b style="color:var(--text-primary);">${vote.initiatorLabel || "–"}</b></div>` +
+    `<div style="margin-top:4px;">Abgestimmt: ${vote.castCount} von ${vote.total}</div>`;
+}
+
+// Schwellenwert fuer "Nächsten Sektor starten": die Schaltflaeche wird freigeschaltet,
+// sobald der Fortschritt 100 % erreicht hat. Der Bereit-Zaehler informiert die Lehrkraft,
+// wer sich gemeldet hat; die Freigabe liegt immer beim Leitstand.
+function setControls(state) {
+  const phase = state.phase;
   const start = el("btn-start");
   start.disabled = phase !== PHASES.LOBBY;
   start.textContent = phase === PHASES.LOBBY ? "Spiel starten" : "Einsatz läuft …";
   el("btn-event").disabled = phase !== PHASES.RUNNING;
   el("btn-reset").disabled = phase === PHASES.LOBBY;
+
+  const atBoundary = !!state.atBoundary;
+  const btnNext = el("btn-next-sector");
+  const readyInfo = el("ready-info");
+  btnNext.disabled = !atBoundary;
+  if (atBoundary) {
+    const crew = state.crew || 0;
+    const ready = state.readyCount || 0;
+    btnNext.textContent = `Nächsten Sektor starten (${ready}/${crew} bereit)`;
+    readyInfo.style.display = "";
+    readyInfo.textContent = `${ready} von ${crew} Crewmitglied${crew === 1 ? "" : "ern"} bereit.`;
+  } else {
+    btnNext.textContent = "Nächsten Sektor starten";
+    readyInfo.style.display = "none";
+  }
 }
 
 function renderStations(stations) {
@@ -113,12 +152,14 @@ function renderCrew(roster) {
     const chip = document.createElement("span");
     chip.className = `crew-chip ${p.role === "supporter" ? "supporter" : ""}`;
     const rolle = p.role === "supporter" ? "Co-Pilot" : "Operator";
-    chip.innerHTML = `${p.label} <small>· ${rolle}${p.stationName ? " " + p.stationName : ""}</small>`;
+    const readyMark = p.ready ? " ✓" : "";
+    chip.innerHTML = `${p.label}${readyMark} <small>· ${rolle}${p.stationName ? " " + p.stationName : ""}</small>`;
     root.appendChild(chip);
   }
 }
 
 el("btn-start").addEventListener("click", () => net.send(C2S.START_GAME));
+el("btn-next-sector").addEventListener("click", () => net.send(C2S.NEXT_SECTOR));
 el("btn-event").addEventListener("click", () => net.send(C2S.TRIGGER_EVENT, { kind: "asteroid" }));
 el("btn-reset").addEventListener("click", () => net.send(C2S.RESET_GAME));
 el("sel-difficulty").addEventListener("change", (e) => {

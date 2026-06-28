@@ -1,1 +1,6 @@
-[]
+{
+  "voice.welcome":         "AI_welcome.wav",
+  "voice.hull_low":        "AI_hull_low.wav",
+  "voice.hull_crit":       "AI_hull_crit.wav",
+  "voice.external_damage": "AI_external_damage.wav"
+}
