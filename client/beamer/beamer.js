@@ -13,6 +13,15 @@ const audio = createAudio();
 let audioOn = false; // erst nach "Ton an" darf Audio spielen
 
 const VOICE_CUES = ["voice.welcome", "voice.hull_low", "voice.hull_crit", "voice.external_damage"];
+const MUSIC_URLS = [
+  "/assets/audio/background_music_0.mp3",
+  "/assets/audio/background_music_1.mp3",
+  "/assets/audio/background_music_2.mp3",
+];
+const MUSIC_CHANNEL = new BroadcastChannel("daedalus-music");
+MUSIC_CHANNEL.onmessage = (e) => {
+  if (e.data?.type === "volume") audio.setMusicVolume(e.data.value);
+};
 
 const statusColor = {
   [STATUS.STABLE]: "var(--status-stable)",
@@ -247,6 +256,12 @@ function applyPhase(state) {
       audio.play("ui.error");
       audio.play("impact.hull");
     }
+    // Musik bei Spielende stoppen, bei Neustart in der Lobby wieder anfahren.
+    if (phase === PHASES.WON || phase === PHASES.LOST) {
+      audio.stopMusic();
+    } else if (phase === PHASES.LOBBY && audioOn) {
+      audio.startMusic(MUSIC_URLS);
+    }
     prevPhase = phase;
   }
 }
@@ -366,6 +381,10 @@ el("btn-audio").addEventListener("click", async () => {
   audio.startAmbient();
   audio.preload(...VOICE_CUES); // alle Voice-Lines vorab laden
   if (prevPhase === PHASES.LOBBY) audio.playVoice("voice.welcome");
+  // Musik nur in Lobby und laufendem Spiel starten.
+  if (prevPhase === PHASES.LOBBY || prevPhase === PHASES.RUNNING) {
+    audio.startMusic(MUSIC_URLS);
+  }
   audioOn = true;
   el("btn-audio").textContent = "♪ Ton an ✓";
 });

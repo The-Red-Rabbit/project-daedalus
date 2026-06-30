@@ -16,6 +16,64 @@ export function createAudio() {
   const voiceLastPlayed = {};
   const VOICE_MIN_INTERVAL = 8000;
 
+  // Hintergrundmusik: sequentieller Zufallsloop aus mehreren Dateien.
+  let musicGain = null;
+  let musicSource = null;
+  let musicBuffers = [];
+  let musicIdx = 0;
+  let musicPlaying = false;
+
+  function shuffleArray(arr) {
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+  }
+
+  function playNextMusicTrack() {
+    if (!musicPlaying || !musicBuffers.length) return;
+    if (musicIdx >= musicBuffers.length) {
+      musicIdx = 0;
+      shuffleArray(musicBuffers);
+    }
+    const c = ensure();
+    const src = c.createBufferSource();
+    src.buffer = musicBuffers[musicIdx++];
+    src.connect(musicGain);
+    src.onended = () => { if (musicPlaying) playNextMusicTrack(); };
+    src.start();
+    musicSource = src;
+  }
+
+  async function startMusic(urls, volume = 0.5) {
+    if (musicPlaying) return;
+    const c = ensure();
+    if (!musicGain) {
+      musicGain = c.createGain();
+      musicGain.gain.value = volume;
+      musicGain.connect(c.destination);
+    }
+    const bufs = await Promise.all(urls.map(u => loadFile(u)));
+    musicBuffers = bufs.filter(Boolean);
+    if (!musicBuffers.length) return;
+    shuffleArray(musicBuffers);
+    musicIdx = 0;
+    musicPlaying = true;
+    playNextMusicTrack();
+  }
+
+  function stopMusic() {
+    musicPlaying = false;
+    if (musicSource) {
+      try { musicSource.stop(); } catch (_) {}
+      musicSource = null;
+    }
+  }
+
+  function setMusicVolume(v) {
+    if (musicGain) musicGain.gain.value = Math.max(0, Math.min(1, v));
+  }
+
   function ensure() {
     if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
     return ctx;
@@ -306,5 +364,5 @@ export function createAudio() {
     for (const cue of cues) tryLoadSample(cue);
   }
 
-  return { unlock, play, playVoice, preload, playFile, preloadFile, startAmbient, setAlarm };
+  return { unlock, play, playVoice, preload, playFile, preloadFile, startAmbient, setAlarm, startMusic, stopMusic, setMusicVolume };
 }

@@ -166,6 +166,17 @@ el("sel-difficulty").addEventListener("change", (e) => {
   net.send(C2S.SET_DIFFICULTY, { level: Number(e.target.value) });
 });
 
+const musicChannel = new BroadcastChannel("daedalus-music");
+const musicSlider = el("music-volume");
+const musicLabel = el("music-vol-label");
+if (musicSlider) {
+  musicSlider.addEventListener("input", () => {
+    const v = Number(musicSlider.value) / 100;
+    if (musicLabel) musicLabel.textContent = `${musicSlider.value}%`;
+    musicChannel.postMessage({ type: "volume", value: v });
+  });
+}
+
 // Debug-Bereich (nur sichtbar mit DAEDALUS_DEBUG): simulierte Spieler steuern.
 el("btn-bots-spawn").addEventListener("click", () => {
   const count = Math.min(20, Math.max(1, Number(el("bot-count").value) || 1));
