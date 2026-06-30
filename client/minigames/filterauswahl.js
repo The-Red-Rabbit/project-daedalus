@@ -1,369 +1,521 @@
 // Mini-Spiel „Filter auswählen" (Themenfeld 2, Station Sensorik).
-// Ersetzt tiefpassfilter.js. Stufe 1: Filtertyp zum Frequenzband wählen.
-// Stufe 2: zusätzlich den Kondensatorwert wählen (fc ≈ 0,16 / (R·C)).
-// Stufe 3: Bandpass mit unterer und oberer Grenzfrequenz dimensionieren.
-// generate() und validate() sind DOM-frei, damit der Server sie prüfen kann.
+// Drei Asteroiden kommen nacheinander; jeder trägt eine Signalfrequenz.
+// Der Spieler wählt den passenden Filter (Tiefpass / Hochpass / Bandpass).
+//
+// Stufe 1: fc zufällig aus [500, 1000, 2000, 5000] Hz, Anzeige in Hz.
+// Stufe 2: fc zufällig aus [200, 500, 1000, 2000] Hz, Einheiten gemischt.
+// Stufe 3: fL und fH zufällig, Bandpass kommt dazu.
+//
+// generate() und validate() sind DOM-frei (Server-Prüfung).
 
 import { pick } from "../../shared/rng.js";
 
-// Faustformel: fc ≈ 0,16 / (R·C) – kein 2·π nötig, damit kopfrechenbar bleibt.
-const FC_APPROX = 0.16;
+// ─── Konstanten ──────────────────────────────────────────────────────────────
 
-// Frequenzbänder des Asteroidensignals und der zugehörige Filtertyp.
-const BANDS = [
-  { id: "niedrig", label: "Niedrig (< 500 Hz)",      filterType: "Tiefpass" },
-  { id: "mittel",  label: "Mittel (500 Hz – 5 kHz)", filterType: "Bandpass" },
-  { id: "hoch",    label: "Hoch (> 5 kHz)",           filterType: "Hochpass" },
+// Kandidaten für die Grenzfrequenz je Stufe (Hz).
+// Stufe 3: low und high so gewählt, dass fL stets deutlich unter fH liegt.
+const FC_OPTIONS = {
+  1: { low: [500, 1000, 2000, 5000] },
+  2: { low: [200, 500, 1000, 2000] },
+  3: { low: [100, 200, 300, 500], high: [2000, 3000, 5000, 10000] },
+};
+
+// Feste Winkel der Radarblips für Asteroiden 0–2 (Bogenmaß, Uhrzeigersinn ab rechts)
+const BLIP_ANGLES = [
+  Math.PI * 0.28,   // oben rechts
+  Math.PI * 1.08,   // unten links
+  Math.PI * 1.72,   // unten rechts
 ];
 
-const FILTER_TYPES = ["Tiefpass", "Bandpass", "Hochpass"];
+// ─── Hilfsfunktionen (DOM-frei) ──────────────────────────────────────────────
 
-// Bauteilwerte in Zehnerstufen: 1 kΩ / 10 kΩ und 1 µF / 100 nF / 10 nF / 1 nF.
-const R_OPTIONS = [1000, 10000];
-const C_OPTIONS = [1e-6, 100e-9, 10e-9, 1e-9];
-
-function approxFc(r, c) {
-  return FC_APPROX / (r * c);
+/** Zufallsganzzahl im Bereich [minHz, maxHz]. */
+function getRandomFrequency(rng, minHz, maxHz) {
+  return Math.round(minHz + rng() * (maxHz - minHz));
 }
 
-function inBand(bandId, f) {
-  if (bandId === "niedrig") return f < 500;
-  if (bandId === "hoch")    return f > 5000;
-  return f >= 500 && f <= 5000;
+/**
+ * Wandelt einen Hz-Wert in die gewünschte Einheit um.
+ * toPrecision(3) entfernt überflüssige Nullen durch parseFloat.
+ */
+function toDisplay(hz, unit) {
+  if (unit === "kHz") return { value: parseFloat((hz / 1000).toPrecision(3)), unit: "kHz" };
+  if (unit === "MHz") return { value: parseFloat((hz / 1e6).toPrecision(3)), unit: "MHz" };
+  return { value: Math.round(hz), unit: "Hz" };
 }
 
-function formatR(r) {
-  return r >= 1000 ? `${r / 1000} kΩ` : `${r} Ω`;
+/** Formatiert Frequenzwert + Einheit als String (schmales Leerzeichen vor Einheit). */
+function fmtFreq(displayValue, displayUnit) {
+  return `${displayValue} ${displayUnit}`;
 }
 
-function formatC(c) {
-  if (c >= 1e-6) return `${Math.round(c * 1e6)} µF`;
-  return `${Math.round(c * 1e9)} nF`;
+/** Fisher-Yates-Mischung deterministisch mit dem RNG. */
+function shuffle(rng, arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
-function formatFreq(f) {
-  return f >= 1000 ? `${(f / 1000).toFixed(0)} kHz` : `${Math.round(f)} Hz`;
+/**
+ * Wählt eine Anzeigeeinheit passend zur Frequenz und Stufe.
+ * MHz nur ab 1000 Hz, damit die Zahl lesbar bleibt.
+ */
+function chooseUnit(rng, hz, level, filterType) {
+  if (level === 1) return "Hz";
+  if (level === 3) return pick(rng, ["Hz", "kHz"]);
+  // Stufe 2: Tiefpass → Hz/kHz; Hochpass → alle drei (MHz nur wenn groß genug)
+  if (filterType === "Tiefpass") return pick(rng, ["Hz", "kHz"]);
+  return hz >= 1000 ? pick(rng, ["Hz", "kHz", "MHz"]) : pick(rng, ["Hz", "kHz"]);
 }
+
+/**
+ * Baut einen Asteroiden-Datensatz für den gegebenen Filtertyp.
+ * Frequenz liegt sicher innerhalb des richtigen Bands (10 % Abstand zur Grenze).
+ */
+function buildAsteroid(rng, filterType, fcLow, fcHigh, level) {
+  const fcTop = fcHigh ?? fcLow;
+  let hz;
+  if (filterType === "Tiefpass")       hz = getRandomFrequency(rng, 30,        fcLow * 0.88);
+  else if (filterType === "Hochpass")  hz = getRandomFrequency(rng, fcTop * 1.12, fcTop * 10);
+  else                                 hz = getRandomFrequency(rng, fcLow * 1.1,  fcHigh * 0.9);
+
+  const unit = chooseUnit(rng, hz, level, filterType);
+  const { value, unit: u } = toDisplay(hz, unit);
+  return { hz, displayValue: value, displayUnit: u, correct: filterType };
+}
+
+// ─── Radar-Canvas (Browser-only, nur innerhalb von mount()) ──────────────────
+
+/**
+ * Startet die Sweep-Animation auf dem Canvas.
+ * Gibt { stop(), setStatus(i, status) } zurück.
+ * Statuswerte: "pending" | "correct" | "wrong"
+ */
+function startRadarAnimation(canvas, getActiveIndex) {
+  const rctx = canvas.getContext("2d");
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const maxR = Math.min(cx, cy) - 4;
+
+  let sweepAngle = 0;
+  const status = BLIP_ANGLES.map(() => "pending");
+  let frameId;
+
+  function draw() {
+    rctx.clearRect(0, 0, W, H);
+
+    // Hintergrundkreis
+    rctx.fillStyle = "#030d03";
+    rctx.beginPath();
+    rctx.arc(cx, cy, maxR, 0, Math.PI * 2);
+    rctx.fill();
+
+    // Gitterringe
+    rctx.strokeStyle = "rgba(90,107,58,0.25)";
+    rctx.lineWidth = 1;
+    for (let i = 1; i <= 4; i++) {
+      rctx.beginPath();
+      rctx.arc(cx, cy, maxR * i / 4, 0, Math.PI * 2);
+      rctx.stroke();
+    }
+
+    // Fadenkreuz
+    rctx.strokeStyle = "rgba(90,107,58,0.3)";
+    rctx.lineWidth = 1;
+    rctx.beginPath();
+    rctx.moveTo(cx - maxR, cy); rctx.lineTo(cx + maxR, cy);
+    rctx.moveTo(cx, cy - maxR); rctx.lineTo(cx, cy + maxR);
+    rctx.stroke();
+
+    // Sweep-Spur (8 abklingende Linien hinter dem Zeiger)
+    for (let t = 7; t >= 0; t--) {
+      const a = sweepAngle - t * 0.07;
+      const alpha = (1 - t / 8) * (t === 0 ? 0.9 : 0.1);
+      rctx.strokeStyle = `rgba(100,200,80,${alpha})`;
+      rctx.lineWidth = t === 0 ? 2 : 1;
+      rctx.beginPath();
+      rctx.moveTo(cx, cy);
+      rctx.lineTo(cx + maxR * Math.cos(a), cy + maxR * Math.sin(a));
+      rctx.stroke();
+    }
+
+    // Asteroiden-Blips
+    const activeIdx = getActiveIndex();
+    BLIP_ANGLES.forEach((bAngle, i) => {
+      if (status[i] === "gone") return;
+
+      const bR = maxR * 0.62;
+      const bx = cx + bR * Math.cos(bAngle);
+      const by = cy + bR * Math.sin(bAngle);
+
+      // Annäherung des Sweep-Zeigers → Glow berechnen
+      let diff = ((sweepAngle - bAngle) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+      if (diff > Math.PI) diff = Math.PI * 2 - diff;
+      const glow = diff < 0.45 ? Math.max(0, 1 - diff / 0.45) : 0;
+
+      // Farbe je nach Status
+      let rgb;
+      if (status[i] === "correct")     rgb = "80,220,100";
+      else if (status[i] === "wrong")  rgb = "220,70,50";
+      else if (i === activeIdx)        rgb = "60,230,150";
+      else                             rgb = "70,130,60";
+
+      const isActive = i === activeIdx && status[i] === "pending";
+      const baseAlpha = isActive ? 0.8 : 0.3;
+      const dotR = isActive ? 5 + glow * 3 : 3;
+
+      rctx.fillStyle = `rgba(${rgb},${Math.min(1, baseAlpha + glow * 0.35)})`;
+      rctx.beginPath();
+      rctx.arc(bx, by, dotR, 0, Math.PI * 2);
+      rctx.fill();
+
+      // Glühring beim aktiven Blip wenn Sweep vorbeizieht
+      if (glow > 0.15 && isActive) {
+        rctx.strokeStyle = `rgba(${rgb},${glow * 0.3})`;
+        rctx.lineWidth = 1;
+        rctx.beginPath();
+        rctx.arc(bx, by, dotR + 7, 0, Math.PI * 2);
+        rctx.stroke();
+      }
+    });
+
+    // Äußerer Rahmen
+    rctx.strokeStyle = "rgba(90,107,58,0.8)";
+    rctx.lineWidth = 2;
+    rctx.beginPath();
+    rctx.arc(cx, cy, maxR, 0, Math.PI * 2);
+    rctx.stroke();
+
+    sweepAngle = (sweepAngle + 0.022) % (Math.PI * 2);
+    frameId = requestAnimationFrame(draw);
+  }
+
+  draw();
+  return {
+    stop()          { cancelAnimationFrame(frameId); },
+    setStatus(i, s) { status[i] = s; },
+  };
+}
+
+// ─── CSS (einmalig in <head> injiziert, in unmount() wieder entfernt) ─────────
+
+const FA2_CSS = `
+/* === Filterauswahl-Minispiel (fa2) === */
+.fa2-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px 16px;
+}
+.fa2-header {
+  width: 100%;
+  padding: 4px 0;
+}
+.fa2-fc-display {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+.fa2-fc-val {
+  color: var(--accent-cyan);
+  font-weight: bold;
+}
+.fa2-radar {
+  display: block;
+  border-radius: 50%;
+  box-shadow: 0 0 20px rgba(90,107,58,0.4), 0 0 6px rgba(90,107,58,0.7);
+}
+.fa2-freq-hud {
+  margin-top: 6px;
+  text-align: center;
+  font-family: var(--font-mono);
+}
+.fa2-freq-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.18em;
+  color: var(--mil-green);
+  text-transform: uppercase;
+}
+.fa2-freq-value {
+  font-size: 1.85rem;
+  font-weight: bold;
+  color: var(--accent-green);
+  text-shadow: 0 0 10px rgba(155,191,106,0.5);
+  letter-spacing: 0.04em;
+  min-height: 2.3rem;
+}
+.fa2-progress {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.fa2-feedback {
+  min-height: 1.3em;
+  font-size: 0.82rem;
+  text-align: center;
+  color: var(--text-muted);
+  transition: color 0.2s;
+  padding: 0 8px;
+}
+.fa2-feedback--ok  { color: var(--accent-green); }
+.fa2-feedback--err { color: var(--accent-red); }
+.fa2-btns {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 4px;
+}
+.fa2-filter-btn { min-width: 82px; }
+.fa2-filter-btn.correct {
+  background: rgba(155,191,106,0.18) !important;
+  border-color: var(--accent-green) !important;
+  color: var(--accent-green) !important;
+}
+.fa2-filter-btn.wrong {
+  background: rgba(210,58,54,0.18) !important;
+  border-color: var(--accent-red) !important;
+  color: var(--accent-red) !important;
+}
+`;
+
+// ─── Mini-Spiel-Export ───────────────────────────────────────────────────────
 
 export default {
   id: "filterauswahl",
   station: "Sensorik",
 
   howto: {
-    goal: "Wähle den Filtertyp, der das Asteroidensignal isoliert. Ab Stufe 2 wähle auch den Kondensatorwert (Faustformel: fc ≈ 0,16 / (R·C)).",
-    example: "Beispiel: R = 1 kΩ, C = 1 µF → fc ≈ 160 Hz → Tiefpass für Niedrig-Signal.",
+    goal: "Drei Asteroiden kommen auf die Daedalus zu – jeder trägt eine Signalfrequenz. Wähle den richtigen Filter, um jede Asteroiden-Frequenz zu verstärken.",
+    example: "Beispiel: fc = 1 kHz, Signal = 300 Hz → Tiefpass. Signal = 2 kHz → Hochpass.",
   },
 
   generate(level, rng) {
     const lvl = level >= 3 ? 3 : level >= 2 ? 2 : 1;
+    const opts = FC_OPTIONS[lvl];
 
-    if (lvl === 1) {
-      const band = pick(rng, BANDS);
-      return {
-        level: lvl,
-        band: band.id,
-        correctFilterType: band.filterType,
-        prompt: `Der Asteroid sendet im Band: ${band.label}. Wähle den passenden Filtertyp.`,
-      };
+    // Grenzfrequenzen zufällig aus den Kandidatenlisten wählen.
+    const fcLow  = pick(rng, opts.low);
+    const fcHigh = lvl === 3 ? pick(rng, opts.high) : undefined;
+
+    // Stufe 3: alle drei Filtertypen erscheinen genau einmal.
+    // Stufen 1–2: Tief- und Hochpass, mindestens einer von jedem.
+    let types;
+    if (lvl === 3) {
+      types = shuffle(rng, ["Tiefpass", "Hochpass", "Bandpass"]);
+    } else {
+      types = shuffle(rng, ["Tiefpass", "Hochpass", pick(rng, ["Tiefpass", "Hochpass"])]);
     }
 
-    if (lvl === 2) {
-      // Nur niedrig/hoch – Bandpass mit zwei Grenzfrequenzen kommt erst in Stufe 3.
-      const eligibleBands = BANDS.filter(b => b.id !== "mittel");
-      const band = pick(rng, eligibleBands);
-      const r = pick(rng, R_OPTIONS);
-      return {
-        level: lvl,
-        band: band.id,
-        correctFilterType: band.filterType,
-        fixedR: r,
-        cOptions: C_OPTIONS,
-        prompt: `Der Asteroid sendet im Band: ${band.label}. Wähle Filtertyp und Kondensator (R = ${formatR(r)}, fest). fc ≈ 0,16 / (R·C)`,
-      };
-    }
-
-    // Stufe 3: immer Bandpass (mittel).
-    const r = pick(rng, R_OPTIONS);
-    return {
-      level: lvl,
-      band: "mittel",
-      correctFilterType: "Bandpass",
-      fixedR: r,
-      cOptions: C_OPTIONS,
-      prompt: `Der Asteroid sendet im Mittelband (500 Hz – 5 kHz). Stelle den Bandpass ein: C für die untere Grenzfrequenz (Hochpass-Teil) und C für die obere Grenzfrequenz (Tiefpass-Teil). R = ${formatR(r)} gilt für beide. fc ≈ 0,16 / (R·C)`,
-    };
+    const asteroids = types.map(t => buildAsteroid(rng, t, fcLow, fcHigh, lvl));
+    return { level: lvl, asteroids, fcLow, fcHigh };
   },
 
   validate(task, input) {
-    if (!input) return { geloest: false, teiltreffer: 0, hinweis: "Eingabe fehlt." };
-
-    if (task.level === 1) {
-      if (!FILTER_TYPES.includes(input.filterType)) {
-        return { geloest: false, teiltreffer: 0, hinweis: "Filtertyp wählen." };
-      }
-      const geloest = input.filterType === task.correctFilterType;
-      const band = BANDS.find(b => b.id === task.band);
-      return {
-        geloest,
-        teiltreffer: geloest ? 1 : 0,
-        hinweis: geloest
-          ? "Richtiger Filtertyp – Signal isoliert."
-          : `Falsch. Für das ${band.label}-Band braucht man einen ${band.filterType}.`,
-      };
+    if (!input || !Array.isArray(input.answers)) {
+      return { geloest: false, teiltreffer: 0, hinweis: "Keine Antworten eingegangen." };
     }
-
-    if (task.level === 2) {
-      const filterOk = FILTER_TYPES.includes(input.filterType) &&
-                       input.filterType === task.correctFilterType;
-      const cVal = Number(input.c);
-      const cOk = task.cOptions.includes(cVal) && inBand(task.band, approxFc(task.fixedR, cVal));
-      const geloest = filterOk && cOk;
-      const teiltreffer = (filterOk ? 0.5 : 0) + (cOk ? 0.5 : 0);
-      let hinweis;
-      if (geloest) {
-        hinweis = "Filter korrekt eingestellt.";
-      } else if (!filterOk && !cOk) {
-        hinweis = "Filtertyp und Kondensatorwert falsch.";
-      } else if (!filterOk) {
-        hinweis = `Filtertyp falsch – für dieses Band braucht man einen ${task.correctFilterType}.`;
+    const { asteroids } = task;
+    let correct = 0;
+    const errors = [];
+    for (let i = 0; i < asteroids.length; i++) {
+      if (input.answers[i] === asteroids[i].correct) {
+        correct++;
       } else {
-        const f = approxFc(task.fixedR, cVal);
-        hinweis = task.band === "niedrig"
-          ? `fc ≈ ${formatFreq(f)} liegt nicht im Niedrig-Band (muss < 500 Hz sein).`
-          : `fc ≈ ${formatFreq(f)} liegt nicht im Hoch-Band (muss > 5 kHz sein).`;
+        errors.push(`Asteroid ${i + 1}: ${asteroids[i].correct} erwartet`);
       }
-      return { geloest, teiltreffer, hinweis };
     }
-
-    // Stufe 3: Bandpass mit unterer und oberer Grenzfrequenz.
-    const cHp = Number(input.cHochpass);
-    const cLp = Number(input.cTiefpass);
-    const hpValid = task.cOptions.includes(cHp);
-    const lpValid = task.cOptions.includes(cLp);
-    if (!hpValid && !lpValid) {
-      return { geloest: false, teiltreffer: 0, hinweis: "Beide Kondensatoren wählen." };
-    }
-    // Hochpass-Grenzfrequenz muss tief liegen (< 500 Hz), damit das Mittelband durchkommt.
-    const fcHp = hpValid ? approxFc(task.fixedR, cHp) : Infinity;
-    // Tiefpass-Grenzfrequenz muss hoch liegen (> 5 kHz), damit das Mittelband durchkommt.
-    const fcLp = lpValid ? approxFc(task.fixedR, cLp) : 0;
-    const hpOk = hpValid && fcHp < 500;
-    const lpOk = lpValid && fcLp > 5000;
-    const geloest = hpOk && lpOk;
-    const teiltreffer = (hpOk ? 0.5 : 0) + (lpOk ? 0.5 : 0);
-    let hinweis;
-    if (geloest) {
-      hinweis = "Bandpass korrekt eingestellt.";
-    } else if (!hpOk && !lpOk) {
-      hinweis = "Beide Grenzfrequenzen passen nicht.";
-    } else if (!hpOk) {
-      hinweis = `Untere Grenzfrequenz fc ≈ ${hpValid ? formatFreq(fcHp) : "?"} – muss unter 500 Hz liegen.`;
-    } else {
-      hinweis = `Obere Grenzfrequenz fc ≈ ${lpValid ? formatFreq(fcLp) : "?"} – muss über 5 kHz liegen.`;
-    }
-    return { geloest, teiltreffer, hinweis };
-  },
-
-  solve(task) {
-    if (task.level === 1) {
-      return { filterType: task.correctFilterType };
-    }
-    if (task.level === 2) {
-      const c = task.cOptions.find(c => inBand(task.band, approxFc(task.fixedR, c)));
-      return { filterType: task.correctFilterType, c: c ?? task.cOptions[0] };
-    }
-    // Stufe 3: Bandpass – suche passendes C für beide Hälften.
-    const cHochpass = task.cOptions.find(c => approxFc(task.fixedR, c) < 500);
-    const cTiefpass = [...task.cOptions].reverse().find(c => approxFc(task.fixedR, c) > 5000);
+    const geloest = correct === asteroids.length;
     return {
-      cHochpass: cHochpass ?? task.cOptions[0],
-      cTiefpass: cTiefpass ?? task.cOptions[task.cOptions.length - 1],
+      geloest,
+      teiltreffer: correct / asteroids.length,
+      hinweis: geloest
+        ? "Alle Asteroiden absorbiert – Sensorik kalibriert!"
+        : errors.join("; ") + ".",
     };
   },
 
-  // Hinweistext fuer den Hilfe-Button (DOM-frei, server-autoritaer).
-  // Nennt die Faustformel und die Zielfrequenz der Aufgabe.
+  solve(task) {
+    return { answers: task.asteroids.map(a => a.correct) };
+  },
+
   hint(task) {
-    const formula = "fc ≈ 0,16 / (R·C)";
-    if (task.level === 1) {
-      return `Faustformel: ${formula}. Gesuchter Filtertyp: ${task.correctFilterType}.`;
+    const { fcLow, fcHigh, asteroids } = task;
+
+    // Filterregeln
+    let filterLines;
+    if (fcHigh !== undefined) {
+      filterLines =
+        `• Frequenz < ${fcLow} Hz → Tiefpass (Low-Pass)\n` +
+        `• ${fcLow} Hz < Frequenz < ${fcHigh} Hz → Bandpass (Band-Pass)\n` +
+        `• Frequenz > ${fcHigh} Hz → Hochpass (High-Pass)`;
+    } else {
+      const fcStr = fcLow >= 1000 ? `${fcLow / 1000} kHz` : `${fcLow} Hz`;
+      filterLines =
+        `• Frequenz < ${fcStr} → Tiefpass (Low-Pass)\n` +
+        `• Frequenz > ${fcStr} → Hochpass (High-Pass)`;
     }
-    if (task.level === 2) {
-      const sol = this.solve(task);
-      const fc = approxFc(task.fixedR, sol.c);
-      return `Faustformel: ${formula}. Zielfrequenz ca. ${formatFreq(fc)} → ${task.correctFilterType}.`;
-    }
-    const sol = this.solve(task);
-    const fcHp = approxFc(task.fixedR, sol.cHochpass);
-    const fcLp = approxFc(task.fixedR, sol.cTiefpass);
-    return `Faustformel: ${formula}. Untere Grenzfrequenz ca. ${formatFreq(fcHp)}, obere ca. ${formatFreq(fcLp)}.`;
+
+    // Umrechnungen für Asteroiden, die nicht in Hz angezeigt werden
+    const conversions = asteroids
+      .filter(a => a.displayUnit !== "Hz")
+      .map(a => `• ${a.displayValue} ${a.displayUnit} = ${a.hz} Hz`);
+    const convBlock = conversions.length > 0
+      ? "\n\nEinheitenumrechnung:\n" + conversions.join("\n")
+      : "";
+
+    return filterLines + convBlock;
   },
 
   mount(root, task, ctx) {
-    let selectedFilter = null;
-    let selectedC = null;
-    let selectedCHp = null;
-    let selectedCLp = null;
+    // Styles einmalig in <head> einbinden (ID verhindert Dopplung)
+    if (!document.querySelector("#fa2-style")) {
+      const s = document.createElement("style");
+      s.id = "fa2-style";
+      s.textContent = FA2_CSS;
+      document.head.appendChild(s);
+    }
 
-    // Hilfsfunktion: Auswahlzustand einer Gruppe aktualisieren.
-    function pickInGroup(container, btn, value, onPick) {
-      container.querySelectorAll(".tp-mode-btn").forEach(b => b.classList.remove("sel"));
-      btn.classList.add("sel");
-      onPick(value);
+    // ── Spielzustand ──
+    let asteroidIndex = 0;
+    const answers = [];
+    let inputLocked = false;
+    let radar = null;
+
+    // ── HTML aufbauen ──
+    const { fcLow, fcHigh } = task;
+    const hasBandpass = fcHigh !== undefined;
+    const fcLabel = hasBandpass
+      ? `f<sub>L</sub> = ${fcLow} Hz &nbsp;|&nbsp; f<sub>H</sub> = ${fcHigh} Hz`
+      : fcLow >= 1000
+        ? `f<sub>c</sub> = ${fcLow / 1000} kHz`
+        : `f<sub>c</sub> = ${fcLow} Hz`;
+
+    root.innerHTML =
+      `<div class="fa2-wrap">` +
+        `<h1 class="title">Sensorik</h1>` +
+        `<div class="fa2-header">` +
+          `<div class="fa2-fc-display">` +
+            `Grenzfrequenz: <span class="fa2-fc-val">${fcLabel}</span>` +
+          `</div>` +
+        `</div>` +
+        `<canvas class="fa2-radar" id="fa2-radar" width="200" height="200"></canvas>` +
+        `<div class="fa2-freq-hud">` +
+          `<div class="fa2-freq-label">Signal eingehend</div>` +
+          `<div class="fa2-freq-value" id="fa2-freq-val">&mdash;</div>` +
+        `</div>` +
+        `<div class="fa2-progress" id="fa2-progress">Asteroid 1 von 3</div>` +
+        `<div class="fa2-feedback" id="fa2-feedback">&nbsp;</div>` +
+        `<div class="fa2-btns" id="fa2-btns">` +
+          `<button class="tp-mode-btn fa2-filter-btn" data-filter="Tiefpass">Tiefpass</button>` +
+          (hasBandpass
+            ? `<button class="tp-mode-btn fa2-filter-btn" data-filter="Bandpass">Bandpass</button>`
+            : "") +
+          `<button class="tp-mode-btn fa2-filter-btn" data-filter="Hochpass">Hochpass</button>` +
+        `</div>` +
+      `</div>`;
+
+    // DOM-Referenzen
+    const canvas     = root.querySelector("#fa2-radar");
+    const freqValEl  = root.querySelector("#fa2-freq-val");
+    const progressEl = root.querySelector("#fa2-progress");
+    const feedbackEl = root.querySelector("#fa2-feedback");
+    const btnsEl     = root.querySelector("#fa2-btns");
+
+    // Radar starten
+    radar = startRadarAnimation(canvas, () => asteroidIndex);
+
+    // ── Ablaufsteuerung ──
+
+    function loadAsteroid(i) {
+      const a = task.asteroids[i];
+      progressEl.textContent = `Asteroid ${i + 1} von ${task.asteroids.length}`;
+      freqValEl.textContent  = fmtFreq(a.displayValue, a.displayUnit);
+      feedbackEl.textContent = " ";
+      feedbackEl.className   = "fa2-feedback";
+      inputLocked = false;
+      btnsEl.querySelectorAll(".fa2-filter-btn").forEach(b => {
+        b.disabled = false;
+        b.classList.remove("correct", "wrong");
+      });
+    }
+
+    function handleFilter(chosen) {
+      if (inputLocked) return;
+      inputLocked = true;
       ctx.audio.play("ui.toggle");
+
+      const a    = task.asteroids[asteroidIndex];
+      const isOk = chosen === a.correct;
+      answers.push(chosen);
+
+      // Buttons einfärben: richtiger Kandidat grün, falsche Wahl rot
+      btnsEl.querySelectorAll(".fa2-filter-btn").forEach(b => {
+        b.disabled = true;
+        if (b.dataset.filter === a.correct)           b.classList.add("correct");
+        if (b.dataset.filter === chosen && !isOk)     b.classList.add("wrong");
+      });
+
+      if (isOk) {
+        feedbackEl.textContent = "✓ Absorbiert!";
+        feedbackEl.className   = "fa2-feedback fa2-feedback--ok";
+        radar.setStatus(asteroidIndex, "correct");
+        ctx.audio.play("station.stabilize");
+      } else {
+        feedbackEl.textContent = `✗ Richtig wäre: ${a.correct}`;
+        feedbackEl.className   = "fa2-feedback fa2-feedback--err";
+        radar.setStatus(asteroidIndex, "wrong");
+        ctx.audio.play("ui.error");
+      }
+
+      // Falscher Filter → Runde sofort beenden; letzter Treffer → Runde abschließen
+      setTimeout(() => {
+        asteroidIndex++;
+        if (!isOk || asteroidIndex >= task.asteroids.length) {
+          finishRound();
+        } else {
+          loadAsteroid(asteroidIndex);
+        }
+      }, 880);
     }
 
-    // Hilfsfunktion: Bestätige-Schaltfläche freischalten, wenn alle Pflichtfelder gesetzt sind.
-    function makeConfirmGuard(confirmEl, check) {
-      return () => { confirmEl.disabled = !check(); };
+    function finishRound() {
+      // Sicherheitsnetz: fehlende Antworten auffüllen
+      while (answers.length < task.asteroids.length) answers.push(null);
+      const isWon = answers.every((a, i) => a === task.asteroids[i].correct);
+      ctx.submit({ answers });
+      // Bei Fehlversuch: Controller ins Menue leiten (kein Retry auf der gleichen Aufgabe)
+      if (!isWon) ctx.lost();
     }
 
-    if (task.level === 1) {
-      root.innerHTML =
-        `<h1 class="title">Sensorik</h1>` +
-        `<div class="bc-scenario"><span class="bc-label">Auftrag</span>${task.prompt}</div>` +
-        `<div class="tp-mode" id="fa-filters"></div>` +
-        `<div class="bc-hint fa-hint">Filtertyp wählen und bestätigen. Ein Fehlversuch kostet Stabilität.</div>` +
-        `<button class="bc-confirm" disabled>Bestätigen</button>`;
+    // Button-Listener
+    btnsEl.querySelectorAll(".fa2-filter-btn").forEach(btn => {
+      btn.addEventListener("click", () => handleFilter(btn.dataset.filter));
+    });
 
-      const filtersEl = root.querySelector("#fa-filters");
-      const confirmEl = root.querySelector(".bc-confirm");
-      const guard = makeConfirmGuard(confirmEl, () => selectedFilter !== null);
+    // Ersten Asteroiden anzeigen
+    loadAsteroid(0);
 
-      FILTER_TYPES.forEach(ft => {
-        const btn = document.createElement("button");
-        btn.className = "tp-mode-btn";
-        btn.textContent = ft;
-        btn.addEventListener("click", () => {
-          pickInGroup(filtersEl, btn, ft, v => { selectedFilter = v; });
-          guard();
-        });
-        filtersEl.appendChild(btn);
-      });
-
-      confirmEl.addEventListener("click", () => {
-        ctx.audio.play("ui.confirm");
-        confirmEl.disabled = true;
-        ctx.submit({ filterType: selectedFilter });
-      });
-
-    } else if (task.level === 2) {
-      root.innerHTML =
-        `<h1 class="title">Sensorik</h1>` +
-        `<div class="bc-scenario"><span class="bc-label">Auftrag</span>${task.prompt}</div>` +
-        `<div class="bc-hintline">1 — Filtertyp wählen</div>` +
-        `<div class="tp-mode" id="fa-filters"></div>` +
-        `<div class="bc-hintline">2 — Kondensator wählen (R = <b>${formatR(task.fixedR)}</b>, fest)</div>` +
-        `<div class="tp-mode" id="fa-c-opts"></div>` +
-        `<div class="tp-readout"><span>Grenzfrequenz <b class="fa-fc">—</b></span></div>` +
-        `<div class="bc-hint fa-hint">Filtertyp und Kondensator wählen, dann bestätigen.</div>` +
-        `<button class="bc-confirm" disabled>Bestätigen</button>`;
-
-      const filtersEl = root.querySelector("#fa-filters");
-      const cOptsEl  = root.querySelector("#fa-c-opts");
-      const fcEl     = root.querySelector(".fa-fc");
-      const confirmEl = root.querySelector(".bc-confirm");
-      const guard = makeConfirmGuard(confirmEl, () => selectedFilter !== null && selectedC !== null);
-
-      FILTER_TYPES.forEach(ft => {
-        const btn = document.createElement("button");
-        btn.className = "tp-mode-btn";
-        btn.textContent = ft;
-        btn.addEventListener("click", () => {
-          pickInGroup(filtersEl, btn, ft, v => { selectedFilter = v; });
-          guard();
-        });
-        filtersEl.appendChild(btn);
-      });
-
-      task.cOptions.forEach(c => {
-        const btn = document.createElement("button");
-        btn.className = "tp-mode-btn";
-        btn.textContent = formatC(c);
-        btn.addEventListener("click", () => {
-          pickInGroup(cOptsEl, btn, c, v => { selectedC = v; });
-          fcEl.textContent = formatFreq(approxFc(task.fixedR, c));
-          guard();
-        });
-        cOptsEl.appendChild(btn);
-      });
-
-      confirmEl.addEventListener("click", () => {
-        ctx.audio.play("ui.confirm");
-        confirmEl.disabled = true;
-        ctx.submit({ filterType: selectedFilter, c: selectedC });
-      });
-
-    } else {
-      // Stufe 3: Bandpass – zwei C-Werte wählen.
-      root.innerHTML =
-        `<h1 class="title">Sensorik</h1>` +
-        `<div class="bc-scenario"><span class="bc-label">Auftrag</span>${task.prompt}</div>` +
-        `<div class="bc-hintline">1 — C für untere Grenzfrequenz (Hochpass-Teil, fc &lt; 500 Hz)</div>` +
-        `<div class="tp-mode" id="fa-c-hp"></div>` +
-        `<div class="tp-readout"><span>fc Hochpass <b class="fa-fc-hp">—</b></span></div>` +
-        `<div class="bc-hintline">2 — C für obere Grenzfrequenz (Tiefpass-Teil, fc &gt; 5 kHz)</div>` +
-        `<div class="tp-mode" id="fa-c-lp"></div>` +
-        `<div class="tp-readout"><span>fc Tiefpass <b class="fa-fc-lp">—</b></span></div>` +
-        `<div class="bc-hint fa-hint">Beide Kondensatoren wählen, dann bestätigen.</div>` +
-        `<button class="bc-confirm" disabled>Bestätigen</button>`;
-
-      const cHpEl  = root.querySelector("#fa-c-hp");
-      const cLpEl  = root.querySelector("#fa-c-lp");
-      const fcHpEl = root.querySelector(".fa-fc-hp");
-      const fcLpEl = root.querySelector(".fa-fc-lp");
-      const confirmEl = root.querySelector(".bc-confirm");
-      const guard = makeConfirmGuard(confirmEl, () => selectedCHp !== null && selectedCLp !== null);
-
-      task.cOptions.forEach(c => {
-        const btnHp = document.createElement("button");
-        btnHp.className = "tp-mode-btn";
-        btnHp.textContent = formatC(c);
-        btnHp.addEventListener("click", () => {
-          pickInGroup(cHpEl, btnHp, c, v => { selectedCHp = v; });
-          fcHpEl.textContent = formatFreq(approxFc(task.fixedR, c));
-          guard();
-        });
-        cHpEl.appendChild(btnHp);
-
-        const btnLp = document.createElement("button");
-        btnLp.className = "tp-mode-btn";
-        btnLp.textContent = formatC(c);
-        btnLp.addEventListener("click", () => {
-          pickInGroup(cLpEl, btnLp, c, v => { selectedCLp = v; });
-          fcLpEl.textContent = formatFreq(approxFc(task.fixedR, c));
-          guard();
-        });
-        cLpEl.appendChild(btnLp);
-      });
-
-      confirmEl.addEventListener("click", () => {
-        ctx.audio.play("ui.confirm");
-        confirmEl.disabled = true;
-        ctx.submit({ cHochpass: selectedCHp, cTiefpass: selectedCLp });
-      });
-    }
-
+    // ── Handle ──
     return {
       unmount() {
+        if (radar) radar.stop();
+        const s = document.querySelector("#fa2-style");
+        if (s) s.remove();
         root.innerHTML = "";
       },
+
       onResult(res) {
-        const hintEl = root.querySelector(".fa-hint");
-        const confirmEl = root.querySelector(".bc-confirm");
-        if (hintEl && res.hinweis) {
-          hintEl.textContent = res.geloest
-            ? res.hinweis
-            : `${res.hinweis} Fehlversuch kostet Stabilität.`;
-        }
-        if (confirmEl) {
-          if (res.geloest) {
-            confirmEl.textContent = "Bestätigt";
-            confirmEl.disabled = true;
-          } else {
-            confirmEl.disabled = false;
-          }
-        }
+        const fb = root.querySelector("#fa2-feedback");
+        if (!fb) return;
+        fb.textContent = res.hinweis || "";
+        fb.className   = `fa2-feedback ${res.geloest ? "fa2-feedback--ok" : "fa2-feedback--err"}`;
       },
     };
   },

@@ -45,14 +45,15 @@ test("hint(): zahlensysteme – Hex-Ziel nennt Dezimalwert", () => {
   }
 });
 
-test("hint(): filterauswahl – nennt Faustformel und Filtertyp", () => {
+test("hint(): filterauswahl – nennt Tiefpass und Hochpass fuer alle Stufen", () => {
   const mod = registry.filterauswahl;
   for (let level = 1; level <= 3; level++) {
     for (let seed = 1; seed <= 5; seed++) {
       const task = mod.generate(level, mulberry32(seed));
       const hint = mod.hint(task);
       assert.ok(typeof hint === "string" && hint.length > 0, `Kein Hinweis fuer L${level} Seed ${seed}`);
-      assert.ok(hint.includes("0,16"), `Hinweis sollte Faustformel enthalten: ${hint}`);
+      assert.ok(hint.includes("Tiefpass"), `Hinweis sollte Tiefpass enthalten: ${hint}`);
+      assert.ok(hint.includes("Hochpass"), `Hinweis sollte Hochpass enthalten: ${hint}`);
     }
   }
 });

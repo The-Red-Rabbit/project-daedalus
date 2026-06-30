@@ -490,6 +490,9 @@ function mountGame() {
     role,
     // Loesung abschicken: Modus (Weg A oder B) wird mitgesendet.
     submit: (input) => net.send(C2S.SOLVE_ATTEMPT, { input, mode: currentMode }),
+    // Optionales Signal fuer Mini-Spiele, die bei einem Fehlversuch sofort enden
+    // (kein Retry auf der gleichen Aufgabe). Leitet nach kurzer Lesepause ins Menue.
+    lost: () => setTimeout(() => { if (screen === "game") showMenu(); }, 1800),
   };
   current = mod.mount(root, task, ctx) || null;
   if (current && current.onState && lastState) current.onState(lastState);

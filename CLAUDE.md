@@ -59,7 +59,7 @@ project-daedalus/
       bordcomputer-logic.js Kachelrouting-Logik, DOM-frei (Server + Client)
       bordcomputer-ui.js    Canvas-UI des Bordcomputers (nur Browser)
       bordcomputer.js       verbindet Logik + UI zur Mini-Spiel-Schnittstelle
-      tiefpassfilter.js     RC-Tiefpass (Themenfeld 2) → wird durch „Filter auswählen" ersetzt
+      filterauswahl.js      Drei Asteroiden, Tiefpass/Hochpass/Bandpass wählen; Radar-Canvas (Themenfeld 2)
       zahlensysteme.js      Dualsystem über Bit-Schalter, ohne Live-Dezimalanzeige (Themenfeld 3)
       reaktor.js            Reaktanz-Kalibrierung (Themenfeld 2) → wird durch „Bauteile austauschen" ersetzt (Einzelspiel)
     styles/
@@ -72,7 +72,7 @@ project-daedalus/
   test/
     rng.test.js             Determinismus und Wertebereiche des Zufalls
     bordcomputer.test.js    generate/validate des Bordcomputers
-    tiefpassfilter.test.js  generate/validate des Tiefpassfilters
+    filterauswahl.test.js   generate/validate/solve/hint des Filter-auswahl-Minispiels
     zahlensysteme.test.js   generate/validate der Zahlensysteme
     reaktor.test.js         generate/validate/solve/solveFor des Reaktors
     game.test.js            Spielkern: Rollen, Rotation, Kopplung, Verfall, Schonzeit, Spielende, solve, Bots
@@ -139,7 +139,7 @@ export default {
 
 `howto` ist eine kurze Anleitung (Felder `goal` und `example`, reiner Text, DOM-frei). Der Controller zeigt sie als Anleitungskarte (Station, Ziel, Beispiel, Knopf „Los") vor dem Mounten – beim Erststart und nach jeder Rotation, nicht nach dem blossen Loesen. Alle vier Mini-Spiele bringen sie mit.
 
-Wichtig: `generate` und `validate` müssen DOM-frei bleiben, denn der Server ruft sie zur autoritativen Prüfung ebenfalls auf. Nur `mount` darf das Document benutzen. Registriert sind derzeit `bordcomputer`, `tiefpassfilter`, `zahlensysteme` und `reaktor`; `tiefpassfilter` und `reaktor` werden in einem späteren Paket durch neue Module ersetzt (siehe `docs/GAME_DESIGN.md`, Abschnitt 7).
+Wichtig: `generate` und `validate` müssen DOM-frei bleiben, denn der Server ruft sie zur autoritativen Prüfung ebenfalls auf. Nur `mount` darf das Document benutzen. Registriert sind derzeit `bordcomputer`, `filterauswahl`, `zahlensysteme` und `bauteiltausch`; `reaktor` ist ersetzt. `mount()` darf eigene Styles per `<style id="…">` in `<head>` injizieren und muss sie in `unmount()` wieder entfernen.
 
 `solve(task)` ist optional und ebenfalls DOM-frei. Es liefert eine korrekte Eingabe zur Aufgabe und liegt damit am selben Ort wie `validate`. Die Debug-Bots (`server/bots.js`) und die Tests nutzen es, statt das Lösungswissen zu duplizieren. Alle vier registrierten Mini-Spiele stellen es bereit.
 
@@ -231,7 +231,7 @@ Der Server zählt jede erfolgreiche Lösung während der Phase `running` als Pun
 Die laufende Überarbeitung folgt `docs/GAME_DESIGN.md`. Noch ausstehend:
 
 - **Spielmechanik** (menügesteuerter Loop, Stationsmenü A/B/C, Energiemodell, manueller Sektorstart, Hilfe-Button, Joker-Abstimmung, Sonderfunktionen je Station).
-- **Mini-Spiele ersetzen**: `tiefpassfilter.js` → „Filter auswählen", `reaktor.js` → „Bauteile austauschen" (Einzelspiel).
+- **Mini-Spiele ersetzen**: `tiefpassfilter.js` → `filterauswahl.js` ✓ abgeschlossen; `reaktor.js` → „Bauteile austauschen" ✓ abgeschlossen.
 - **Audio**: Voice-Lines aus `assets/audio/` einbinden (`AI_welcome`, `AI_hull_low`, `AI_hull_crit`, `AI_external_damage`), `.wav`-Unterstützung in der Engine, Fortschritts-Cues bei Meilensteinen.
 - **Balance** (Paket P6): Zahlenwerte nach Komplettdurchläufen mit Bots abstimmen.
 - **Echte Assets**: weitere Sprites und Samples je Cue (im Manifest eintragen).

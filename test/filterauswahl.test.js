@@ -1,6 +1,6 @@
-// Tests für das Mini-Spiel Filterauswahl (Themenfeld 2, Station Sensorik).
-// generate() und validate() sind DOM-frei und damit die autoritative Logik des Servers.
-// Stufe 1: Filtertyp wählen. Stufe 2: Filtertyp + Kondensator. Stufe 3: Bandpass.
+// Tests für das Mini-Spiel Filterauswahl (neu, Themenfeld 2, Station Sensorik).
+// Drei Asteroiden pro Runde; Spieler wählt Tiefpass / Hochpass / Bandpass.
+// generate() und validate() sind DOM-frei – autoritative Logik des Servers.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -9,10 +9,7 @@ import filterauswahl from "../client/minigames/filterauswahl.js";
 
 const build = (level, seed) => filterauswahl.generate(level, mulberry32(seed));
 
-const FC_APPROX = 0.16;
-function approxFc(r, c) { return FC_APPROX / (r * c); }
-
-// --- generate ---
+// ─── generate ────────────────────────────────────────────────────────────────
 
 test("generate: gleicher Seed und gleiche Stufe ergeben dieselbe Aufgabe", () => {
   for (const seed of [1, 99, 0xbeef, 4294967295]) {
@@ -22,191 +19,179 @@ test("generate: gleicher Seed und gleiche Stufe ergeben dieselbe Aufgabe", () =>
   }
 });
 
-test("generate: Stufe 1 – alle drei Frequenzbänder können vorkommen", () => {
-  const bands = new Set();
-  for (let seed = 0; seed < 100; seed++) bands.add(build(1, seed).band);
-  assert.ok(bands.has("niedrig") && bands.has("mittel") && bands.has("hoch"),
-    "Alle drei Bänder müssen über 100 Seeds vorkommen");
+test("generate: immer genau 3 Asteroiden pro Runde", () => {
+  for (const level of [1, 2, 3]) {
+    for (let seed = 0; seed < 50; seed++) {
+      const task = build(level, seed);
+      assert.equal(task.asteroids.length, 3, `Stufe ${level} Seed ${seed}`);
+    }
+  }
 });
 
-test("generate: Stufe 1 – correctFilterType passt zum Band", () => {
-  const map = { niedrig: "Tiefpass", mittel: "Bandpass", hoch: "Hochpass" };
-  for (let seed = 0; seed < 200; seed++) {
+test("generate: Stufe 1 – fcLow aus [500,1000,2000,5000], kein fcHigh, nur Hz", () => {
+  const valid = new Set([500, 1000, 2000, 5000]);
+  for (let seed = 0; seed < 100; seed++) {
     const task = build(1, seed);
-    assert.equal(task.correctFilterType, map[task.band], `Seed ${seed}`);
+    assert.ok(valid.has(task.fcLow), `Seed ${seed}: fcLow ${task.fcLow} nicht in Kandidatenliste`);
+    assert.equal(task.fcHigh, undefined, `Seed ${seed}`);
+    assert.equal(task.level, 1);
+    for (const a of task.asteroids) {
+      assert.equal(a.displayUnit, "Hz", `Seed ${seed}: Stufe 1 darf nur Hz zeigen`);
+    }
   }
 });
 
-test("generate: Stufe 2 – kein Mittelband, hat fixedR und cOptions", () => {
-  for (let seed = 0; seed < 200; seed++) {
+test("generate: Stufe 1 – kein Bandpass-Typ", () => {
+  for (let seed = 0; seed < 100; seed++) {
+    const task = build(1, seed);
+    for (const a of task.asteroids) {
+      assert.notEqual(a.correct, "Bandpass", `Seed ${seed}`);
+    }
+  }
+});
+
+test("generate: Stufe 1 – mindestens Tiefpass und Hochpass über viele Seeds", () => {
+  const types = new Set();
+  for (let seed = 0; seed < 100; seed++) {
+    build(1, seed).asteroids.forEach(a => types.add(a.correct));
+  }
+  assert.ok(types.has("Tiefpass"), "Tiefpass muss vorkommen");
+  assert.ok(types.has("Hochpass"), "Hochpass muss vorkommen");
+});
+
+test("generate: Stufe 2 – fcLow aus [200,500,1000,2000], kein Bandpass-Typ", () => {
+  const valid = new Set([200, 500, 1000, 2000]);
+  for (let seed = 0; seed < 100; seed++) {
     const task = build(2, seed);
-    assert.notEqual(task.band, "mittel", `Seed ${seed}: Stufe 2 darf nicht mittel sein`);
-    assert.ok(task.fixedR > 0, `Seed ${seed}: fixedR fehlt`);
-    assert.ok(Array.isArray(task.cOptions) && task.cOptions.length > 0, `Seed ${seed}: cOptions fehlt`);
-    assert.equal(task.level, 2);
+    assert.ok(valid.has(task.fcLow), `Seed ${seed}: fcLow ${task.fcLow} nicht in Kandidatenliste`);
+    assert.equal(task.fcHigh, undefined, `Seed ${seed}`);
+    for (const a of task.asteroids) {
+      assert.notEqual(a.correct, "Bandpass", `Seed ${seed}`);
+    }
   }
 });
 
-test("generate: Stufe 2 – immer mindestens ein gültiges C vorhanden", () => {
-  for (let seed = 0; seed < 200; seed++) {
-    const task = build(2, seed);
-    const valid = task.cOptions.filter(c => {
-      const f = approxFc(task.fixedR, c);
-      return task.band === "niedrig" ? f < 500 : f > 5000;
-    });
-    assert.ok(valid.length > 0,
-      `Seed ${seed}: kein gültiges C für Band "${task.band}" bei R = ${task.fixedR}`);
-  }
-});
-
-test("generate: Stufe 3 – immer Band 'mittel', Bandpass, hat fixedR und cOptions", () => {
-  for (let seed = 0; seed < 200; seed++) {
+test("generate: Stufe 3 – fcLow/fcHigh aus Kandidatenlisten, fL < fH, alle drei Typen einmal", () => {
+  const validLow  = new Set([100, 200, 300, 500]);
+  const validHigh = new Set([2000, 3000, 5000, 10000]);
+  for (let seed = 0; seed < 100; seed++) {
     const task = build(3, seed);
-    assert.equal(task.band, "mittel", `Seed ${seed}`);
-    assert.equal(task.correctFilterType, "Bandpass", `Seed ${seed}`);
-    assert.ok(task.fixedR > 0);
-    assert.ok(Array.isArray(task.cOptions) && task.cOptions.length > 0);
-    assert.equal(task.level, 3);
+    assert.ok(validLow.has(task.fcLow),   `Seed ${seed}: fcLow ${task.fcLow} nicht in Kandidatenliste`);
+    assert.ok(validHigh.has(task.fcHigh), `Seed ${seed}: fcHigh ${task.fcHigh} nicht in Kandidatenliste`);
+    assert.ok(task.fcLow < task.fcHigh,   `Seed ${seed}: fL ${task.fcLow} >= fH ${task.fcHigh}`);
+    const types = task.asteroids.map(a => a.correct).sort().join(",");
+    assert.equal(types, "Bandpass,Hochpass,Tiefpass", `Seed ${seed}: ${types}`);
   }
 });
 
-test("generate: Stufe 3 – immer gültiges cHochpass (< 500 Hz) und cTiefpass (> 5 kHz)", () => {
-  for (let seed = 0; seed < 200; seed++) {
-    const task = build(3, seed);
-    const hasHp = task.cOptions.some(c => approxFc(task.fixedR, c) < 500);
-    const hasLp = task.cOptions.some(c => approxFc(task.fixedR, c) > 5000);
-    assert.ok(hasHp, `Seed ${seed}: kein gültiges C für Hochpass-Teil (fc < 500 Hz)`);
-    assert.ok(hasLp, `Seed ${seed}: kein gültiges C für Tiefpass-Teil (fc > 5 kHz)`);
+test("generate: Frequenzen liegen sicher im richtigen Band (alle Stufen)", () => {
+  for (const level of [1, 2, 3]) {
+    for (let seed = 0; seed < 50; seed++) {
+      const task = build(level, seed);
+      for (const a of task.asteroids) {
+        if (a.correct === "Tiefpass") {
+          assert.ok(a.hz < task.fcLow,
+            `Stufe ${level} Seed ${seed}: Tiefpass-Hz ${a.hz} >= fcLow ${task.fcLow}`);
+        }
+        if (a.correct === "Hochpass") {
+          const fcRef = task.fcHigh ?? task.fcLow;
+          assert.ok(a.hz > fcRef,
+            `Stufe ${level} Seed ${seed}: Hochpass-Hz ${a.hz} <= fcRef ${fcRef}`);
+        }
+        if (a.correct === "Bandpass") {
+          assert.ok(a.hz > task.fcLow && a.hz < task.fcHigh,
+            `Stufe ${level} Seed ${seed}: Bandpass-Hz ${a.hz} außerhalb [${task.fcLow}, ${task.fcHigh}]`);
+        }
+      }
+    }
   }
 });
 
-// --- validate Stufe 1 ---
-
-test("validate: Stufe 1 – richtiger Filtertyp → geloest=true, teiltreffer=1", () => {
-  for (let seed = 0; seed < 200; seed++) {
-    const task = build(1, seed);
-    const res = filterauswahl.validate(task, { filterType: task.correctFilterType });
-    assert.equal(res.geloest, true, `Seed ${seed}`);
-    assert.equal(res.teiltreffer, 1, `Seed ${seed}`);
+test("generate: displayValue und displayUnit stimmen mit hz überein", () => {
+  for (const level of [1, 2, 3]) {
+    for (let seed = 0; seed < 30; seed++) {
+      const task = build(level, seed);
+      for (const a of task.asteroids) {
+        const { hz, displayValue, displayUnit } = a;
+        let reconstructed;
+        if (displayUnit === "kHz") reconstructed = displayValue * 1000;
+        else if (displayUnit === "MHz") reconstructed = displayValue * 1e6;
+        else reconstructed = displayValue;
+        // Toleranz wegen toPrecision-Rundung
+        assert.ok(Math.abs(reconstructed - hz) / hz < 0.01,
+          `Stufe ${level} Seed ${seed}: ${displayValue} ${displayUnit} ≠ ${hz} Hz`);
+      }
+    }
   }
 });
 
-test("validate: Stufe 1 – falscher Filtertyp → geloest=false, teiltreffer=0, hinweis vorhanden", () => {
-  for (let seed = 0; seed < 50; seed++) {
-    const task = build(1, seed);
-    const wrong = ["Tiefpass", "Bandpass", "Hochpass"].find(ft => ft !== task.correctFilterType);
-    const res = filterauswahl.validate(task, { filterType: wrong });
-    assert.equal(res.geloest, false, `Seed ${seed}`);
-    assert.equal(res.teiltreffer, 0, `Seed ${seed}`);
-    assert.ok(res.hinweis.length > 0, `Seed ${seed}: hinweis fehlt`);
+// ─── validate ────────────────────────────────────────────────────────────────
+
+test("validate: alle korrekte Antworten → geloest=true, teiltreffer=1", () => {
+  for (const level of [1, 2, 3]) {
+    for (let seed = 0; seed < 100; seed++) {
+      const task = build(level, seed);
+      const sol = filterauswahl.solve(task);
+      const res = filterauswahl.validate(task, sol);
+      assert.equal(res.geloest, true, `Stufe ${level} Seed ${seed}: ${res.hinweis}`);
+      assert.equal(res.teiltreffer, 1, `Stufe ${level} Seed ${seed}`);
+    }
   }
 });
 
-// --- validate Stufe 2 ---
-
-test("validate: Stufe 2 – richtiger Filtertyp und richtiges C → geloest=true, teiltreffer=1", () => {
-  for (let seed = 0; seed < 200; seed++) {
-    const task = build(2, seed);
-    const sol = filterauswahl.solve(task);
-    const res = filterauswahl.validate(task, sol);
-    assert.equal(res.geloest, true, `Seed ${seed}: ${res.hinweis}`);
-    assert.equal(res.teiltreffer, 1, `Seed ${seed}`);
+test("validate: alle falsch → geloest=false, teiltreffer=0", () => {
+  for (const level of [1, 2, 3]) {
+    const task = build(level, 7);
+    const allWrong = task.asteroids.map(a =>
+      a.correct === "Tiefpass" ? "Hochpass" : "Tiefpass"
+    );
+    const res = filterauswahl.validate(task, { answers: allWrong });
+    assert.equal(res.geloest, false, `Stufe ${level}`);
+    assert.equal(res.teiltreffer, 0, `Stufe ${level}`);
   }
 });
 
-test("validate: Stufe 2 – falscher Filtertyp, richtiges C → teiltreffer=0,5", () => {
-  for (let seed = 0; seed < 50; seed++) {
-    const task = build(2, seed);
-    const sol = filterauswahl.solve(task);
-    const wrongFilter = ["Tiefpass", "Bandpass", "Hochpass"].find(ft => ft !== task.correctFilterType);
-    const res = filterauswahl.validate(task, { filterType: wrongFilter, c: sol.c });
-    assert.equal(res.geloest, false, `Seed ${seed}`);
-    assert.equal(res.teiltreffer, 0.5, `Seed ${seed}`);
-  }
+test("validate: 1 von 3 korrekt → teiltreffer ≈ 0,333", () => {
+  const task = build(1, 3);
+  const answers = task.asteroids.map((a, i) =>
+    i === 0 ? a.correct : (a.correct === "Tiefpass" ? "Hochpass" : "Tiefpass")
+  );
+  const res = filterauswahl.validate(task, { answers });
+  assert.ok(!res.geloest);
+  assert.ok(Math.abs(res.teiltreffer - 1 / 3) < 0.001);
 });
 
-test("validate: Stufe 2 – richtiger Filtertyp, falsches C → teiltreffer=0,5", () => {
-  for (let seed = 0; seed < 50; seed++) {
-    const task = build(2, seed);
-    // Suche ein C, das nicht im Zielband liegt.
-    const wrongC = task.cOptions.find(c => {
-      const f = approxFc(task.fixedR, c);
-      return task.band === "niedrig" ? f >= 500 : f <= 5000;
-    });
-    if (!wrongC) continue; // kein falsches C verfügbar (sollte nicht vorkommen)
-    const res = filterauswahl.validate(task, { filterType: task.correctFilterType, c: wrongC });
-    assert.equal(res.geloest, false, `Seed ${seed}`);
-    assert.equal(res.teiltreffer, 0.5, `Seed ${seed}`);
-  }
+test("validate: 2 von 3 korrekt → teiltreffer ≈ 0,667", () => {
+  const task = build(1, 3);
+  const answers = task.asteroids.map((a, i) =>
+    i < 2 ? a.correct : (a.correct === "Tiefpass" ? "Hochpass" : "Tiefpass")
+  );
+  const res = filterauswahl.validate(task, { answers });
+  assert.ok(!res.geloest);
+  assert.ok(Math.abs(res.teiltreffer - 2 / 3) < 0.001);
 });
 
-test("validate: Stufe 2 – beide falsch → teiltreffer=0", () => {
-  const task = build(2, 42);
-  const wrongFilter = ["Tiefpass", "Bandpass", "Hochpass"].find(ft => ft !== task.correctFilterType);
-  const wrongC = task.cOptions.find(c => {
-    const f = approxFc(task.fixedR, c);
-    return task.band === "niedrig" ? f >= 500 : f <= 5000;
-  });
-  if (!wrongC) return;
-  const res = filterauswahl.validate(task, { filterType: wrongFilter, c: wrongC });
+test("validate: null-Antworten (abgebrochene Runde) zählen als falsch", () => {
+  const task = build(1, 1);
+  const res = filterauswahl.validate(task, { answers: [null, null, null] });
   assert.equal(res.geloest, false);
   assert.equal(res.teiltreffer, 0);
 });
-
-// --- validate Stufe 3 ---
-
-test("validate: Stufe 3 – korrektes cHochpass und cTiefpass → geloest=true, teiltreffer=1", () => {
-  for (let seed = 0; seed < 200; seed++) {
-    const task = build(3, seed);
-    const sol = filterauswahl.solve(task);
-    const res = filterauswahl.validate(task, sol);
-    assert.equal(res.geloest, true, `Seed ${seed}: ${res.hinweis}`);
-    assert.equal(res.teiltreffer, 1, `Seed ${seed}`);
-  }
-});
-
-test("validate: Stufe 3 – nur cHochpass korrekt → geloest=false, teiltreffer=0,5", () => {
-  for (let seed = 0; seed < 50; seed++) {
-    const task = build(3, seed);
-    const sol = filterauswahl.solve(task);
-    // Wähle ein C für Tiefpass-Teil, das fc ≤ 5 kHz ergibt (falsch).
-    const badLp = task.cOptions.find(c => approxFc(task.fixedR, c) <= 5000);
-    if (!badLp) continue;
-    const res = filterauswahl.validate(task, { cHochpass: sol.cHochpass, cTiefpass: badLp });
-    assert.equal(res.geloest, false, `Seed ${seed}`);
-    assert.equal(res.teiltreffer, 0.5, `Seed ${seed}`);
-  }
-});
-
-test("validate: Stufe 3 – nur cTiefpass korrekt → geloest=false, teiltreffer=0,5", () => {
-  for (let seed = 0; seed < 50; seed++) {
-    const task = build(3, seed);
-    const sol = filterauswahl.solve(task);
-    // Wähle ein C für Hochpass-Teil, das fc ≥ 500 Hz ergibt (falsch).
-    const badHp = task.cOptions.find(c => approxFc(task.fixedR, c) >= 500);
-    if (!badHp) continue;
-    const res = filterauswahl.validate(task, { cHochpass: badHp, cTiefpass: sol.cTiefpass });
-    assert.equal(res.geloest, false, `Seed ${seed}`);
-    assert.equal(res.teiltreffer, 0.5, `Seed ${seed}`);
-  }
-});
-
-// --- ungültige Eingaben ---
 
 test("validate: ungültige Eingabe → geloest=false, teiltreffer=0, hinweis vorhanden", () => {
   for (const level of [1, 2, 3]) {
     const task = build(level, 5);
     for (const input of [undefined, null, {}]) {
       const res = filterauswahl.validate(task, input);
-      assert.equal(res.geloest, false, `Level ${level}, input=${JSON.stringify(input)}`);
-      assert.equal(res.teiltreffer, 0, `Level ${level}`);
+      assert.equal(res.geloest, false, `Stufe ${level}, input=${JSON.stringify(input)}`);
+      assert.equal(res.teiltreffer, 0, `Stufe ${level}`);
       assert.ok(typeof res.hinweis === "string" && res.hinweis.length > 0,
-        `Level ${level}: hinweis fehlt`);
+        `Stufe ${level}: hinweis fehlt`);
     }
   }
 });
 
-// --- solve ---
+// ─── solve ───────────────────────────────────────────────────────────────────
 
 test("solve: liefert für alle Stufen und Seeds eine vollständig korrekte Eingabe", () => {
   for (let seed = 0; seed < 300; seed++) {
@@ -218,4 +203,21 @@ test("solve: liefert für alle Stufen und Seeds eine vollständig korrekte Einga
       assert.equal(res.teiltreffer, 1, `Seed ${seed} L${level}`);
     }
   }
+});
+
+// ─── hint ─────────────────────────────────────────────────────────────────────
+
+test("hint: enthält Tiefpass und Hochpass für alle Stufen", () => {
+  for (const level of [1, 2, 3]) {
+    const h = filterauswahl.hint(build(level, 0));
+    assert.ok(typeof h === "string" && h.length > 0, `Stufe ${level}: kein String`);
+    assert.ok(h.includes("Tiefpass"), `Stufe ${level}: kein 'Tiefpass'`);
+    assert.ok(h.includes("Hochpass"), `Stufe ${level}: kein 'Hochpass'`);
+  }
+});
+
+test("hint: enthält Bandpass nur in Stufe 3", () => {
+  assert.ok(!filterauswahl.hint(build(1, 0)).includes("Bandpass"), "Stufe 1 darf kein Bandpass enthalten");
+  assert.ok(!filterauswahl.hint(build(2, 0)).includes("Bandpass"), "Stufe 2 darf kein Bandpass enthalten");
+  assert.ok( filterauswahl.hint(build(3, 0)).includes("Bandpass"), "Stufe 3 muss Bandpass enthalten");
 });
