@@ -30,10 +30,10 @@ let currentMode = "energy"; // Modus der aktuellen Loesung: "energy" (Weg A) | "
 
 // Sonderfunktionsnamen je Station (Menue B), aus GAME_DESIGN.md Abschnitt 7.
 const STATION_SPECIAL = {
-  bordcomputer: "Schadenskontrolle",
-  sensorik:     "Asteroiden filtern",
-  navigation:   "Kurskorrektur",
-  reaktor:      "Energieschub",
+  bordcomputer: "Schadenskontrolle (+10 Hülle)",
+  sensorik:     "Asteroiden filtern (15 Sek. weniger Asteroideneinschläge)",
+  navigation:   "Kurskorrektur (+10 Fortschritt)",
+  reaktor:      "Energieschub (+15 Energie)",
 };
 
 // Debug-Teststand (/dev): per Query-Parameter direkt auf eine Station setzen,
@@ -296,8 +296,8 @@ function voteButtonState() {
   const voteActive = !!(lastState?.vote);
   const canStart = charges > 0 && !hasInitiated && !voteActive;
   let label = canStart
-    ? `Abstimmung starten · ${charges} ◈`
-    : `Abstimmung starten`;
+    ? `Abstimmung Hüllenreparatur starten · ${charges} ◈`
+    : `Abstimmung Hüllenreparatur starten`;
   let reason = "";
   if (!canStart) {
     reason = hasInitiated ? "bereits genutzt" : charges <= 0 ? "keine Ladungen mehr" : "läuft bereits";
@@ -376,11 +376,11 @@ function showMenu() {
     `<span class="menu-station">${stationName || "Station"}</span>` +
     `<span class="menu-contrib" id="menu-contrib">✦ ${contrib}</span>` +
     `</div>` +
-    `<div class="menu-label">Wähle deinen Weg</div>` +
+    `<div class="menu-label">Wähle, was du tun möchtest</div>` +
     `<div class="menu-choices">` +
     `<button class="menu-btn menu-a" id="menu-btn-a">` +
     `<span class="menu-key">A</span>` +
-    `<span class="menu-text">Für Energie lösen</span>` +
+    `<span class="menu-text">Für +10 Energie lösen</span>` +
     `</button>` +
     `<button class="menu-btn menu-b" id="menu-btn-b">` +
     `<span class="menu-key">B</span>` +

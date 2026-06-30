@@ -31,10 +31,10 @@ export const ASTEROID_INTERVAL_SEC = 90; // mittlerer Abstand zwischen automatis
 export const DEFAULT_MAX_SECTORS = 3;
 export const HELP_COOLDOWN_SEC = 20;     // Sperrzeit des Hilfe-Buttons nach einer Anfrage (einstellbar)
 // Sonderfunktionen (Weg B des Stationsmenues): Groessen und Dauer.
-const SPECIAL_ENERGY_BOOST = 20;         // Energieschub (Reaktor): Sofort-Plus auf die geteilte Energie
-const SPECIAL_PROGRESS_BOOST = 15;       // Kurskorrektur (Navigation): Sofort-Schub auf den Fortschritt
-const SPECIAL_HULL_REPAIR = 20;          // Schadenskontrolle (Bordcomputer): sofortige Huellenreparatur
-export const ASTEROID_FILTER_DURATION_SEC = 30; // Asteroiden filtern (Sensorik): Dauer der gesenkten Einschlagrate in Sekunden
+const SPECIAL_ENERGY_BOOST = 15;         // Energieschub (Reaktor): Sofort-Plus auf die geteilte Energie
+const SPECIAL_PROGRESS_BOOST = 10;       // Kurskorrektur (Navigation): Sofort-Schub auf den Fortschritt
+const SPECIAL_HULL_REPAIR = 10;          // Schadenskontrolle (Bordcomputer): sofortige Huellenreparatur
+export const ASTEROID_FILTER_DURATION_SEC = 15; // Asteroiden filtern (Sensorik): Dauer der gesenkten Einschlagrate in Sekunden
 export const ASTEROID_FILTER_FACTOR = 4;         // Asteroiden filtern: Teiler fuer den Asteroidentakt (4x seltener)
 
 function clampLevel(level) {
