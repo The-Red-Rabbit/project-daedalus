@@ -61,7 +61,7 @@ const net = connect({
       if (audioOn) {
         audio.play("alarm.asteroid");
         audio.play("impact.hull");
-        audio.playVoice("voice.external_damage");
+        //audio.playVoice("voice.external_damage");
       }
       renderer.shake();
     }
@@ -134,6 +134,8 @@ function updateState(state) {
         audio.playVoice("voice.hull_crit");
       } else if (prevHull >= 50 && hull < 50) {
         audio.playVoice("voice.hull_low");
+      } else if (prevHull >= 90 && hull < 90) {
+        audio.playVoice("voice.external_damage");
       }
     }
     prevHull = hull;
