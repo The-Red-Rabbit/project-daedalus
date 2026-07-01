@@ -13,7 +13,7 @@ const ASTEROID_DAMAGE = 18;          // Huellenschaden je Asteroidenwelle
 const HULL_DRAIN_CRITICAL = 0.5;     // unbesetzte Station, Huelle pro Sekunde
 const HULL_DRAIN_WARN = 0.10;        // besetzt, aber nicht stabil, Huelle pro Sekunde
 const GRACE_SEC = 6;                 // Schonzeit nach Start und Sektorwechsel: kein Verfall, kein Huellenverlust
-const MAX_SECTORS = 3;               // nach dem letzten Sektor folgt der Sieg
+const MAX_SECTORS = 4;               // nach dem letzten Sektor folgt der Sieg
 const SUPPORTER_BOOST = 0.34;        // eine Co-Pilot-Loesung hebt die Stabilitaet der Station
 const WRONG_SOLVE_PENALTY = 5;       // Energie-Abzug bei Fehlversuch (Raten wird teuer)
 const FAST_SOLVE_SEC = 6;            // schneller geloest -> eine Stufe schwerer
@@ -351,7 +351,7 @@ export function createGame(config) {
       return { ok: false, reason: "cooldown", remaining: Math.ceil(cooldownEnd - now) };
     }
 
-    const others = [...participants.values()].filter(p => p.id !== requesterId);
+    const others = [...participants.values()].filter(p => p.id !== requesterId && !p.id.startsWith("bot"));
     if (others.length === 0) return { ok: false, reason: "no_helpers" };
 
     const helper = others[Math.floor(Math.random() * others.length)];

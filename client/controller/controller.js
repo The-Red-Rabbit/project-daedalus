@@ -33,7 +33,7 @@ const STATION_SPECIAL = {
   bordcomputer: "Schadenskontrolle (+10 Hülle)",
   sensorik:     "Asteroiden filtern (15 Sek. weniger Asteroideneinschläge)",
   navigation:   "Kurskorrektur (+10 Fortschritt)",
-  reaktor:      "Energieschub (+15 Energie)",
+  reaktor:      "Energieschub",
 };
 
 // Debug-Teststand (/dev): per Query-Parameter direkt auf eine Station setzen,
